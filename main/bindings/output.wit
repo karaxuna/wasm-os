@@ -1,0 +1,6 @@
+/// Module "output" — structured output channel.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface output {
+  /// Emit a structured (JSON) message; the host logs it to serial.
+  output-emit: func(json-data: string) -> s32;
+}

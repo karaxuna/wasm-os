@@ -1,0 +1,5 @@
+{
+  "name": "wasm-os",
+  "version": "0.1.0",
+  "description": "WebAssembly OS for ESP32 - run WASM modules on microcontrollers"
+}

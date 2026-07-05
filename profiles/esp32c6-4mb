@@ -1,0 +1,1 @@
+-B build/esp32c6-4mb -DSDKCONFIG=build/esp32c6-4mb/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.esp32c6;sdkconfig.flash-4mb"

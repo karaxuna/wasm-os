@@ -1,0 +1,46 @@
+/// Module "http_client" — HTTP(S) requests.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface http-client {
+  /// Returns a config handle, 0 on failure.
+  http-client-config-create: func() -> u32;
+
+  http-client-config-set-url: func(config: u32, url: string) -> s32;
+
+  /// method: GET=0, POST=1, PUT=2, PATCH=3, DELETE=4, HEAD=5, ...
+  http-client-config-set-method: func(config: u32, method: s32) -> s32;
+
+  http-client-config-set-timeout-ms: func(config: u32, timeout-ms: s32) -> s32;
+
+  http-client-config-destroy: func(config: u32) -> s32;
+
+  /// Create a client from a config (URL required). Returns a client handle,
+  /// 0 on failure. The config can be destroyed afterwards.
+  http-client-init: func(config: u32) -> u32;
+
+  http-client-set-header: func(client: u32, key: string, value: string) -> s32;
+
+  /// Body is copied host-side, so the guest buffer may be reused immediately.
+  http-client-set-post-field: func(client: u32, data: u32, len: u32) -> s32;
+
+  /// Run the whole request. Returns the HTTP status code or a negative error.
+  http-client-perform: func(client: u32) -> s32;
+
+  /// Streaming API: open the connection announcing write-len body bytes.
+  http-client-open: func(client: u32, write-len: s32) -> s32;
+
+  /// Returns bytes written or a negative error.
+  http-client-write: func(client: u32, buf: u32, len: u32) -> s32;
+
+  /// Returns the response content length or a negative error.
+  http-client-fetch-headers: func(client: u32) -> s32;
+
+  /// Returns bytes read into buf or a negative error.
+  http-client-read-response: func(client: u32, buf: u32, cap: u32) -> s32;
+
+  http-client-get-status-code: func(client: u32) -> s32;
+
+  http-client-get-content-length: func(client: u32) -> s32;
+
+  /// Close the connection and destroy the client.
+  http-client-cleanup: func(client: u32) -> s32;
+}

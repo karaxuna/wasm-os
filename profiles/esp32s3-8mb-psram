@@ -1,0 +1,1 @@
+-B build/esp32s3-8mb-psram -DSDKCONFIG=build/esp32s3-8mb-psram/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.esp32s3;sdkconfig.flash-8mb;sdkconfig.psram"

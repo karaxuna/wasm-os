@@ -1,0 +1,51 @@
+dependencies:
+  espressif/esp_websocket_client:
+    component_hash: ae561d39222a399ddda5e470913c3d54a3c0f53dce15b8d21a3aaa4226dd74b1
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.2.3
+  idf:
+    source:
+      type: idf
+    version: 5.5.4
+  joltwallet/littlefs:
+    component_hash: 01faa388c6305fe77fd6962cda6171e753033458f24f8fae9e9d932e3d817a4c
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.22.1
+  wasm-micro-runtime:
+    component_hash: 907436b2054e5024e43eeb73ab0bda1f242f4d924410bf4f6ce84f414afc724d
+    dependencies:
+    - name: idf
+      version: '>=4.4'
+    source:
+      git: https://github.com/karaxuna/wasm-micro-runtime.git
+      path: .
+      type: git
+    targets:
+    - esp32
+    - esp32s2
+    - esp32s3
+    - esp32c3
+    - esp32c6
+    - esp32p4
+    - esp32c5
+    version: a5ac805056ffd9e168603f153b5a6fa161a24c08
+direct_dependencies:
+- espressif/esp_websocket_client
+- idf
+- joltwallet/littlefs
+- wasm-micro-runtime
+manifest_hash: fa6274190024f2a9cf72f3f1cd253810ed909699826caa2a2373a46f958ebdae
+target: esp32
+version: 2.0.0

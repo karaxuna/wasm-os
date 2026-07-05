@@ -1,0 +1,24 @@
+/// Module "storage" — persistent key/value storage (NVS).
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface storage {
+  /// snprintf-style: returns the value length; value + NUL is copied to buf
+  /// when cap is large enough.
+  storage-get-string: func(ns: string, key: string, buf: u32, cap: u32) -> s32;
+
+  storage-set-string: func(ns: string, key: string, value: string) -> s32;
+
+  /// Writes the value to the guest u32 at out.
+  storage-get-u32: func(ns: string, key: string, out: u32) -> s32;
+
+  storage-set-u32: func(ns: string, key: string, value: u32) -> s32;
+
+  /// Writes the value to the guest u8 at out.
+  storage-get-u8: func(ns: string, key: string, out: u32) -> s32;
+
+  storage-set-u8: func(ns: string, key: string, value: u32) -> s32;
+
+  /// Returns the blob size; the blob is copied to buf when cap >= size.
+  storage-get-blob: func(ns: string, key: string, buf: u32, cap: u32) -> s32;
+
+  storage-set-blob: func(ns: string, key: string, data: u32, size: u32) -> s32;
+}

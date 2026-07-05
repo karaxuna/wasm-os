@@ -1,0 +1,18 @@
+/// Module "shared_memory" — export regions of linear memory by address.
+/// Regions are re-validated on every copy, so they stay safe even if linear
+/// memory grows/moves. At most 8 regions may be shared.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface shared-memory {
+  /// Export [addr, addr+size) of the caller's memory. -6 if already shared.
+  share-memory: func(addr: u64, size: u32) -> s32;
+
+  /// Copy size bytes from a shared region (identified by its address) at
+  /// offset into the caller's memory at to-addr.
+  copy-shared-memory: func(from-addr: u64, to-addr: u64, offset: u32, size: u32) -> s32;
+
+  /// Returns the shared region's length, 0 if unknown.
+  get-shared-memory-len: func(addr: u64) -> u32;
+
+  /// Only the sharing module may unshare.
+  remove-memory-sharing: func(addr: u64) -> s32;
+}

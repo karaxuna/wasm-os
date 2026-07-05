@@ -1,0 +1,38 @@
+/// Module "spi_master" — SPI master bus and devices.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface spi-master {
+  /// Returns a bus-config handle, 0 on failure. All pins default to -1 (unused).
+  spi-bus-config-create: func() -> u32;
+  spi-bus-config-set-mosi-io-num: func(config: u32, pin: s32) -> s32;
+  spi-bus-config-set-miso-io-num: func(config: u32, pin: s32) -> s32;
+  spi-bus-config-set-sclk-io-num: func(config: u32, pin: s32) -> s32;
+  spi-bus-config-destroy: func(config: u32) -> s32;
+
+  /// host-id: SPI2_HOST=1, SPI3_HOST=2; dma-chan: 0=disabled, 3=auto.
+  spi-bus-initialize: func(host-id: s32, config: u32, dma-chan: s32) -> s32;
+  spi-bus-free: func(host-id: s32) -> s32;
+
+  /// Returns a device-config handle, 0 on failure.
+  /// Defaults: 20 MHz, mode 3, queue size 7, no dummy bits.
+  spi-device-interface-config-create: func() -> u32;
+  spi-device-interface-config-set-spics-io-num: func(config: u32, pin: s32) -> s32;
+  spi-device-interface-config-set-clock-speed-hz: func(config: u32, hz: s32) -> s32;
+  spi-device-interface-config-set-mode: func(config: u32, mode: s32) -> s32;
+  spi-device-interface-config-destroy: func(config: u32) -> s32;
+
+  /// Attach a device to a bus; writes the device handle to the guest u32 at
+  /// device-out.
+  spi-bus-add-device: func(host-id: s32, config: u32, device-out: u32) -> s32;
+  spi-bus-remove-device: func(device: u32) -> s32;
+
+  /// Returns a transaction handle, 0 on failure. Buffer addresses are guest
+  /// addresses, validated and resolved at transmit time.
+  spi-transaction-create: func() -> u32;
+  spi-transaction-set-length: func(txn: u32, length-bits: s32) -> s32;
+  spi-transaction-set-tx-buffer: func(txn: u32, buf: u32) -> s32;
+  spi-transaction-set-rx-buffer: func(txn: u32, buf: u32) -> s32;
+  spi-transaction-destroy: func(txn: u32) -> s32;
+
+  /// Blocking transmit.
+  spi-device-transmit: func(device: u32, txn: u32) -> s32;
+}

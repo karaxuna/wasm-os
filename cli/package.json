@@ -1,0 +1,26 @@
+{
+  "name": "wasm-os",
+  "version": "0.1.0",
+  "description": "CLI for pushing WebAssembly modules to ESP32 devices running wasm-os",
+  "bin": {
+    "wasm-os": "./src/index.js"
+  },
+  "scripts": {
+    "test": "npm run test:unit",
+    "test:unit": "jest tests/protocol.test.js",
+    "test:hw": "jest --runInBand tests/hardware.test.js",
+    "lint": "echo ok"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "assemblyscript": "^0.27.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

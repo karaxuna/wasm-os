@@ -1,0 +1,12 @@
+dependencies:
+  espressif/esp_websocket_client: 1.2.3
+  joltwallet/littlefs: '*'
+  idf:
+    version: '>=4.1.0'
+  wasm-micro-runtime:
+    git: https://github.com/karaxuna/wasm-micro-runtime.git
+    version: a5ac805056ffd9e168603f153b5a6fa161a24c08
+  espressif/esp_wifi_remote:
+    version: ^1.6.1
+    rules:
+    - if: target == esp32p4

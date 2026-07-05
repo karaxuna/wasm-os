@@ -1,0 +1,44 @@
+/// Module "i2s_std" — standard-mode I2S audio.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+/// timeout-ms of -1 waits forever. Out-pointers may be 0 to skip.
+interface i2s-std {
+  /// Returns a channel-config handle, 0 on failure.
+  /// Defaults: 6 DMA descriptors, 240 frames.
+  i2s-chan-cfg-create: func() -> u32;
+  /// id: I2S_NUM_0=0, I2S_NUM_1=1, auto=-1.
+  i2s-chan-cfg-set-id: func(config: u32, id: s32) -> s32;
+  /// role: I2S_ROLE_MASTER=0, I2S_ROLE_SLAVE=1.
+  i2s-chan-cfg-set-role: func(config: u32, role: s32) -> s32;
+  i2s-chan-cfg-destroy: func(config: u32) -> s32;
+
+  /// Returns a std-config handle, 0 on failure.
+  /// Defaults: 16 kHz, 16-bit MSB slots, mono.
+  i2s-std-config-create: func() -> u32;
+  i2s-std-config-set-sample-rate-hz: func(config: u32, hz: s32) -> s32;
+  i2s-std-config-set-data-bit-width: func(config: u32, bits: s32) -> s32;
+  i2s-std-config-set-slot-mode: func(config: u32, mode: s32) -> s32;
+  i2s-std-config-set-ws-width: func(config: u32, width: s32) -> s32;
+  i2s-std-config-set-mclk: func(config: u32, pin: s32) -> s32;
+  i2s-std-config-set-bclk: func(config: u32, pin: s32) -> s32;
+  i2s-std-config-set-ws: func(config: u32, pin: s32) -> s32;
+  i2s-std-config-set-dout: func(config: u32, pin: s32) -> s32;
+  i2s-std-config-set-din: func(config: u32, pin: s32) -> s32;
+  i2s-std-config-destroy: func(config: u32) -> s32;
+
+  /// Create channels; writes tx/rx channel handles to the guest u32s at
+  /// tx-out / rx-out. Pass 0 to skip creating that direction.
+  i2s-new-channel: func(config: u32, tx-out: u32, rx-out: u32) -> s32;
+
+  i2s-channel-init-std-mode: func(channel: u32, std-config: u32) -> s32;
+  i2s-channel-enable: func(channel: u32) -> s32;
+  i2s-channel-disable: func(channel: u32) -> s32;
+
+  /// Bytes actually read/written/loaded are stored to the guest u32 at the
+  /// *-out address.
+  i2s-channel-read: func(channel: u32, buf: u32, size: u32, timeout-ms: s32, bytes-read-out: u32) -> s32;
+  i2s-channel-write: func(channel: u32, buf: u32, size: u32, timeout-ms: s32, bytes-written-out: u32) -> s32;
+  i2s-channel-preload-data: func(channel: u32, buf: u32, size: u32, bytes-loaded-out: u32) -> s32;
+
+  /// Disable and delete a channel.
+  i2s-del-channel: func(channel: u32) -> s32;
+}

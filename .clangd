@@ -1,0 +1,10 @@
+CompileFlags:
+    CompilationDatabase: "./build/esp32s3-16mb-psram-oct"
+    Remove: [-f*, -m*]
+    Add:
+        - "-Wno-format"
+        - "-Wno-error=format"
+
+Diagnostics:
+    Suppress:
+        - pp_file_not_found

@@ -1,0 +1,18 @@
+/// Module "gpio" — digital I/O.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface gpio {
+  /// Drive a pin (level: 0 or 1).
+  gpio-set-level: func(gpio-num: s32, level: u32) -> s32;
+
+  /// Read a pin: returns 0 or 1.
+  gpio-get-level: func(gpio-num: s32) -> s32;
+
+  /// mode: GPIO_MODE_DISABLE=0, INPUT=1, OUTPUT=2, OUTPUT_OD=6, INPUT_OUTPUT_OD=7, INPUT_OUTPUT=3.
+  gpio-set-direction: func(gpio-num: s32, mode: s32) -> s32;
+
+  /// Reset a pin to its default state.
+  gpio-reset-pin: func(gpio-num: s32) -> s32;
+
+  /// Configure a set of pins in one call. pin-bit-mask selects the pins.
+  gpio-config: func(pin-bit-mask: u64, mode: s32, pull-up-en: s32, pull-down-en: s32, intr-type: s32) -> s32;
+}
