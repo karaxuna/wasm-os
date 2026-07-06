@@ -1,1 +1,8 @@
 CONFIG_IDF_TARGET="esp32"
+# No PSRAM on classic ESP32 boards: the classic interpreter runs bytecode
+# in place instead of building a second in-RAM translation (fast interp),
+# roughly halving the RAM needed to run large modules.
+CONFIG_WAMR_INTERP_CLASSIC=y
+# Trusted modules only: the mini loader skips validation bookkeeping,
+# cutting the per-module RAM the loader keeps around.
+CONFIG_WAMR_INTERP_LOADER_MINI=y

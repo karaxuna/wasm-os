@@ -9,6 +9,7 @@
     "test": "npm run test:unit",
     "test:unit": "jest tests/protocol.test.js",
     "test:hw": "jest --runInBand tests/hardware.test.js",
+    "test:touch": "jest --runInBand tests/touch-button.test.js",
     "lint": "echo ok"
   },
   "dependencies": {

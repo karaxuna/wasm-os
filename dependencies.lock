@@ -47,5 +47,5 @@ direct_dependencies:
 - joltwallet/littlefs
 - wasm-micro-runtime
 manifest_hash: fa6274190024f2a9cf72f3f1cd253810ed909699826caa2a2373a46f958ebdae
-target: esp32
+target: esp32s3
 version: 2.0.0

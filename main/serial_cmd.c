@@ -34,8 +34,15 @@
 /* Protocol frame: [MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN] */
 #define FRAME_HEADER_SIZE 9
 
+/*
+ * Incoming files are streamed straight to a temp file and renamed into
+ * place on completion: buffering a whole app in RAM is impossible for
+ * modules larger than the biggest free heap block.
+ */
+#define PUSH_TMP_PATH LITTLEFS_PREFIX ".push.tmp"
+
 typedef struct {
-  uint8_t* buffer;   /* NULL when no transfer is in progress */
+  FILE* file;        /* NULL when no transfer is in progress */
   uint32_t expected; /* total bytes announced by PUSH_BEGIN */
   uint32_t received;
   char path[sizeof(LITTLEFS_PREFIX) + MAX_FILENAME_LEN];
@@ -45,7 +52,10 @@ static push_transfer_t s_transfer;
 static int s_console_fd = -1;
 
 static void transfer_reset(void) {
-  free(s_transfer.buffer);
+  if (s_transfer.file) {
+    fclose(s_transfer.file);
+    unlink(PUSH_TMP_PATH);
+  }
   memset(&s_transfer, 0, sizeof(s_transfer));
 }
 
@@ -109,10 +119,10 @@ static void handle_push_begin(const uint8_t* payload, uint32_t len) {
     }
   }
 
-  s_transfer.buffer = malloc(total);
-  if (!s_transfer.buffer) {
-    ESP_LOGE(TAG, "Failed to allocate %lu bytes for transfer", (unsigned long)total);
-    nak("Out of memory");
+  s_transfer.file = fopen(PUSH_TMP_PATH, "wb");
+  if (!s_transfer.file) {
+    ESP_LOGE(TAG, "Failed to open %s for writing", PUSH_TMP_PATH);
+    nak("Failed to open file");
     return;
   }
   s_transfer.expected = total;
@@ -126,7 +136,7 @@ static void handle_push_begin(const uint8_t* payload, uint32_t len) {
 }
 
 static void handle_push_data(const uint8_t* payload, uint32_t len) {
-  if (!s_transfer.buffer) {
+  if (!s_transfer.file) {
     nak("No push in progress");
     return;
   }
@@ -136,14 +146,19 @@ static void handle_push_data(const uint8_t* payload, uint32_t len) {
     return;
   }
 
-  memcpy(s_transfer.buffer + s_transfer.received, payload, len);
+  if (fwrite(payload, 1, len, s_transfer.file) != len) {
+    ESP_LOGE(TAG, "Short write to %s (filesystem full?)", PUSH_TMP_PATH);
+    transfer_reset();
+    nak("Write failed");
+    return;
+  }
   s_transfer.received += len;
   ESP_LOGD(TAG, "Push data: %lu/%lu bytes", (unsigned long)s_transfer.received, (unsigned long)s_transfer.expected);
   send_response(SERIAL_RSP_ACK, NULL);
 }
 
 static void handle_push_end(void) {
-  if (!s_transfer.buffer) {
+  if (!s_transfer.file) {
     nak("No push in progress");
     return;
   }
@@ -155,26 +170,28 @@ static void handle_push_end(void) {
     return;
   }
 
+  if (fclose(s_transfer.file) != 0) {
+    s_transfer.file = NULL;
+    transfer_reset();
+    nak("Write failed");
+    return;
+  }
+  s_transfer.file = NULL;
+
+  /* The app is stopped only once the payload is fully on flash, then the
+   * temp file atomically replaces the target. */
   bool is_main_app = strcmp(s_transfer.path, MAIN_WASM_PATH) == 0;
   if (is_main_app) {
     app_runtime_stop();
   }
 
-  FILE* file = fopen(s_transfer.path, "wb");
-  if (!file) {
-    ESP_LOGE(TAG, "Failed to open %s for writing", s_transfer.path);
-    transfer_reset();
-    nak("Failed to open file");
-    return;
-  }
-  size_t written = fwrite(s_transfer.buffer, 1, s_transfer.expected, file);
-  fclose(file);
-
-  if (written != s_transfer.expected) {
-    ESP_LOGE(TAG, "Short write to %s: %u of %lu bytes", s_transfer.path, (unsigned)written,
-             (unsigned long)s_transfer.expected);
+  if (rename(PUSH_TMP_PATH, s_transfer.path) != 0) {
+    ESP_LOGE(TAG, "Failed to rename %s -> %s", PUSH_TMP_PATH, s_transfer.path);
     transfer_reset();
     nak("Write failed");
+    if (is_main_app) {
+      app_runtime_start(); /* old main.wasm is still intact */
+    }
     return;
   }
 

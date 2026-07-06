@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h" // IWYU pragma: keep
 #include "freertos/event_groups.h"
@@ -21,10 +22,19 @@
 #ifdef CONFIG_IDF_TARGET_ESP32P4
 #define APP_WASM_STACK_BYTES (32 * 1024)
 #else
-#define APP_WASM_STACK_BYTES (3 * 1024)
+/* GUI apps (LVGL) have deep call chains, so this must be well above the
+ * original 3 KB — but it is also the last big allocation on a nearly full
+ * heap on PSRAM-less boards, so it cannot be extravagant either. */
+#define APP_WASM_STACK_BYTES (12 * 1024)
 #endif
-#define APP_WASM_HEAP_BYTES (8 * 1024)
-#define APP_SHARED_HEAP_BYTES (8 * 1024)
+/* WAMR's module heap backs wasm_runtime_module_malloc, which no binding
+ * uses; 0 keeps the linear-memory allocation as small (and as likely to fit
+ * a fragmented heap) as possible. */
+#define APP_WASM_HEAP_BYTES 0
+
+/* One 64 KB wasm page plus allocator/metadata headroom; held during load,
+ * released right before instantiation claims it for linear memory. */
+#define APP_LINEAR_RESERVE_BYTES (66 * 1024)
 #define APP_MAX_WASM_THREADS 4
 
 #define APP_TASK_PRIORITY 10
@@ -130,7 +140,7 @@ static void run_app(void) {
   wasm_module_t module = NULL;
   wasm_module_inst_t inst = NULL;
   wasm_exec_env_t exec_env = NULL;
-  bool heap_attached = false;
+  void* linear_reserve = NULL;
   char error_buf[128];
 
   RuntimeInitArgs init_args;
@@ -157,12 +167,22 @@ static void run_app(void) {
     goto teardown;
   }
 
+  /*
+   * Instantiation needs one contiguous block for the app's linear memory
+   * (one 64 KB wasm page + allocator overhead). On a fragmented heap the
+   * loader's many small allocations would otherwise nibble away the only
+   * block that large, so reserve it now and hand it back just before
+   * wasm_runtime_instantiate. Best effort: NULL simply skips the insurance.
+   */
+  linear_reserve = malloc(APP_LINEAR_RESERVE_BYTES);
+
   LoadArgs load_args = {.wasm_binary_freeable = true};
   module = wasm_runtime_load_ex(binary, binary_size, &load_args, error_buf, sizeof(error_buf));
   if (!module) {
     ESP_LOGE(TAG, "Failed to load module: %s", error_buf);
     goto teardown;
   }
+
 
   const device_config_t* config = device_config_get();
   wasm_runtime_set_wasi_args(module, NULL, 0, NULL, 0, (const char**)config->env, config->env_count, NULL, 0);
@@ -172,20 +192,16 @@ static void run_app(void) {
     binary = NULL;
   }
 
+  free(linear_reserve);
+  linear_reserve = NULL;
+
   inst = wasm_runtime_instantiate(module, APP_WASM_STACK_BYTES, APP_WASM_HEAP_BYTES, error_buf, sizeof(error_buf));
   if (!inst) {
-    ESP_LOGE(TAG, "Failed to instantiate module: %s", error_buf);
+    ESP_LOGE(TAG, "Failed to instantiate module: %s (%u free, largest block %u)", error_buf,
+             heap_caps_get_free_size(MALLOC_CAP_8BIT), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
     goto teardown;
   }
   publish_inst(inst);
-
-  SharedHeapInitArgs heap_args = {.size = APP_SHARED_HEAP_BYTES};
-  wasm_shared_heap_t heap = wasm_runtime_create_shared_heap(&heap_args);
-  if (!heap || !wasm_runtime_attach_shared_heap(inst, heap)) {
-    ESP_LOGE(TAG, "Failed to create/attach shared heap");
-    goto teardown;
-  }
-  heap_attached = true;
 
   exec_env = wasm_runtime_create_exec_env(inst, APP_WASM_STACK_BYTES);
   if (!exec_env) {
@@ -217,15 +233,13 @@ teardown:
   if (exec_env) {
     wasm_runtime_destroy_exec_env(exec_env);
   }
-  if (heap_attached) {
-    wasm_runtime_detach_shared_heap(inst);
-  }
   if (inst) {
     wasm_runtime_deinstantiate(inst);
   }
   if (module) {
     wasm_runtime_unload(module);
   }
+  free(linear_reserve);
   free(binary);
   wasm_runtime_destroy();
 }

@@ -7,3 +7,7 @@ node_modules/
 managed_components/
 build/
 sdkconfig.old
+
+# Fetched by cli/scripts (pinned versions; see fetch-*.sh)
+cli/toolchain/
+cli/tests/fixtures/touch-button/app.wasm

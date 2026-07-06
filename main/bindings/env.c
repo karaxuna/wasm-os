@@ -5,6 +5,7 @@
 
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h" // IWYU pragma: keep
 #include "freertos/task.h"
 #include "wasm_export.h"
@@ -22,6 +23,11 @@ static void wasm_reboot(wasm_exec_env_t exec_env) {
 
 static void wasm_delay(wasm_exec_env_t exec_env, int32_t milliseconds) {
   vTaskDelay(pdMS_TO_TICKS(milliseconds));
+}
+
+/* Milliseconds since boot; wraps every ~49 days. Tick source for GUI loops. */
+static uint32_t wasm_millis(wasm_exec_env_t exec_env) {
+  return (uint32_t)(esp_timer_get_time() / 1000);
 }
 
 static void wasm_print(wasm_exec_env_t exec_env, char* message) {
@@ -141,6 +147,7 @@ static NativeSymbol k_env_symbols[] = {
     {"abort", wasm_abort, "(iiii)", NULL},
     {"reboot", wasm_reboot, "()", NULL},
     {"delay", wasm_delay, "(i)", NULL},
+    {"millis", wasm_millis, "()i", NULL},
     {"print", wasm_print, "($)", NULL},
     {"println", wasm_println, "($)", NULL},
     {"strtod", wasm_strtod, "($i)F", NULL},
