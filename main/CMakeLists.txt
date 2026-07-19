@@ -17,6 +17,7 @@ idf_component_register(
     "bindings/gpio.c"
     "bindings/handle.c"
     "bindings/http_client.c"
+    "bindings/i2c_master.c"
     "bindings/i2s_std.c"
     "bindings/output.c"
     "bindings/shared_memory.c"

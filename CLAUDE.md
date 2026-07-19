@@ -37,11 +37,14 @@ npx wasm-os ports                  # list serial ports
 cd cli && npm test           # protocol unit tests (no hardware)
 cd cli && npm run test:hw    # hardware integration (requires connected ESP32)
 cd cli && npm run test:touch # interactive: human presses an on-screen button (HW-458/CYD board)
+cd cli && npm run test:touch:p4 # interactive: same, with LVGL on the JC8012P4A1C (ESP32-P4, 10.1" MIPI-DSI)
 ```
 
 The hardware suite builds firmware, flashes it, compiles the AssemblyScript fixture to .wasm, pushes it via the serial protocol, and verifies execution. Match the profile to the connected board with `WASM_OS_PROFILE=esp32-4mb` (default is esp32s3).
 
 The touch test pushes a plain-C app (compiled with wasi-sdk, auto-downloaded by `cli/scripts/fetch-wasi-sdk.sh`) that drives the CYD's ILI9341 display and XPT2046 touch entirely through the spi_master/gpio bindings. Note: LVGL-sized modules (~100 KB+) load but cannot instantiate on the PSRAM-less CYD — the module bytecode and the 64 KB linear-memory page cannot both fit its fragmented DRAM regions.
+
+The P4 touch test (`test:touch:p4`, `WASM_OS_PROFILE=esp32p4-16mb-psram`) targets the JC8012P4A1C board and does use LVGL (v9, fetched by `cli/scripts/fetch-lvgl.sh`, compiled to wasm alongside the fixture): the P4's PSRAM removes the module-size limit. Its fixture drives the JD9365 800x1280 MIPI-DSI panel through the esp_lcd bindings and the GSL3680 touch controller (vendor firmware upload + Silead point algorithm, copied from the vendor demo) through the i2c_master bindings.
 
 ## Serial Protocol
 

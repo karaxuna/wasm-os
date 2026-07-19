@@ -31,6 +31,8 @@ interface esp-lcd {
   lcd-panel-io-del: func(io: u32) -> s32;
   /// params may be 0/0 for parameterless commands.
   lcd-panel-io-tx-param: func(io: u32, cmd: s32, params: u32, params-len: u32) -> s32;
+  /// Reads params-len bytes of a register/command response into params.
+  lcd-panel-io-rx-param: func(io: u32, cmd: s32, params: u32, params-len: u32) -> s32;
 
   // DPI panel (pixel stream). Defaults: RGB565, 1 framebuffer.
   dpi-panel-config-create: func() -> u32;

@@ -253,6 +253,20 @@ static int32_t wasm_lcd_panel_io_tx_param(wasm_exec_env_t exec_env, uint32_t io_
   return wos_err(esp_lcd_panel_io_tx_param(io, cmd, params, params_len));
 }
 
+static int32_t wasm_lcd_panel_io_rx_param(wasm_exec_env_t exec_env, uint32_t io_handle, int32_t cmd,
+                                          uint32_t params_aptr, uint32_t params_len) {
+  esp_lcd_panel_io_handle_t io = wos_handle_deref(io_handle, &PANEL_IO_TYPE);
+  if (!io) {
+    return WOS_ERR_INVALID_HANDLE;
+  }
+
+  void* params = wos_guest_ptr(exec_env, params_aptr, params_len);
+  if (!params) {
+    return WOS_ERR_BAD_MEMORY;
+  }
+  return wos_err(esp_lcd_panel_io_rx_param(io, cmd, params, params_len));
+}
+
 /* ── DPI panel ───────────────────────────────────────────────────────────── */
 
 static uint32_t wasm_dpi_panel_config_create(wasm_exec_env_t exec_env) {
@@ -424,6 +438,7 @@ LCD_STUB_ERR(wasm_dbi_io_config_set_lcd_param_bits, uint32_t a, int32_t b)
 LCD_STUB_ERR(wasm_lcd_new_panel_io_dbi, uint32_t a, uint32_t b, uint32_t c)
 LCD_STUB_ERR(wasm_lcd_panel_io_del, uint32_t a)
 LCD_STUB_ERR(wasm_lcd_panel_io_tx_param, uint32_t a, int32_t b, uint32_t c, uint32_t d)
+LCD_STUB_ERR(wasm_lcd_panel_io_rx_param, uint32_t a, int32_t b, uint32_t c, uint32_t d)
 
 LCD_STUB_CREATE(wasm_dpi_panel_config_create)
 LCD_STUB_ERR(wasm_dpi_panel_config_destroy, uint32_t a)
@@ -472,6 +487,7 @@ static NativeSymbol k_symbols[] = {
     {"lcd_new_panel_io_dbi", wasm_lcd_new_panel_io_dbi, "(iii)i", NULL},
     {"lcd_panel_io_del", wasm_lcd_panel_io_del, "(i)i", NULL},
     {"lcd_panel_io_tx_param", wasm_lcd_panel_io_tx_param, "(iiii)i", NULL},
+    {"lcd_panel_io_rx_param", wasm_lcd_panel_io_rx_param, "(iiii)i", NULL},
 
     {"dpi_panel_config_create", wasm_dpi_panel_config_create, "()i", NULL},
     {"dpi_panel_config_destroy", wasm_dpi_panel_config_destroy, "(i)i", NULL},

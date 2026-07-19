@@ -47,8 +47,29 @@ static int32_t wasi_fd_write(wasm_exec_env_t exec_env, int32_t fd, uint32_t iovs
   return 0;
 }
 
+/*
+ * Stubs for the stdio/exit machinery wasi-libc links into larger apps (e.g.
+ * LVGL fixtures): enough to instantiate, not to do file I/O.
+ */
+static int32_t wasi_fd_close(wasm_exec_env_t exec_env, int32_t fd) {
+  return 8; /* WASI errno: badf */
+}
+
+static int32_t wasi_fd_seek(wasm_exec_env_t exec_env, int32_t fd, int64_t offset, int32_t whence,
+                            uint32_t newoffset_aptr) {
+  return 8; /* WASI errno: badf */
+}
+
+static void wasi_proc_exit(wasm_exec_env_t exec_env, int32_t code) {
+  ESP_LOGI(TAG, "proc_exit(%d)", (int)code);
+  wasm_runtime_set_exception(wasm_runtime_get_module_inst(exec_env), "wasi proc exit");
+}
+
 static NativeSymbol k_symbols[] = {
     {"fd_write", wasi_fd_write, "(iiii)i", NULL},
+    {"fd_close", wasi_fd_close, "(i)i", NULL},
+    {"fd_seek", wasi_fd_seek, "(iIii)i", NULL},
+    {"proc_exit", wasi_proc_exit, "(i)", NULL},
 };
 
 bool wos_register_wasi(void) {

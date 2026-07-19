@@ -10,4 +10,7 @@ sdkconfig.old
 
 # Fetched by cli/scripts (pinned versions; see fetch-*.sh)
 cli/toolchain/
+
+# Rebuilt by the touch tests; too big to commit (LVGL)
+cli/tests/fixtures/lvgl-touch-p4/app.wasm
 cli/tests/fixtures/touch-button/app.wasm
