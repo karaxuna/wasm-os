@@ -14,6 +14,7 @@ idf_component_register(
     "bindings/env.c"
     "bindings/esp_lcd.c"
     "bindings/fs.c"
+    "bindings/gfx.c"
     "bindings/gpio.c"
     "bindings/handle.c"
     "bindings/http_client.c"

@@ -13,9 +13,13 @@ CLANG="${WASI_SDK}/bin/clang"
 OUT="${FIXTURE_DIR}/app.wasm"
 BUILD_DIR="${FIXTURE_DIR}/build"
 
+# -O3 renders ~noticeably faster under the WAMR interpreter than -Oz;
+# override with WASM_OS_OPT=-Oz when size matters more than speed.
+OPT="${WASM_OS_OPT:--Oz}"
+
 CFLAGS=(
   --target=wasm32-wasi
-  -Oz
+  "${OPT}"
   -ffunction-sections -fdata-sections
   -DLV_CONF_INCLUDE_SIMPLE
   -I"${FIXTURE_DIR}"
@@ -49,14 +53,14 @@ done < <(find "${LVGL_DIR}/src" -name '*.c' | sort)
 
 "${CLANG}" \
   --target=wasm32-wasi \
-  -Oz \
+  "${OPT}" \
   -Wl,--gc-sections -Wl,--strip-all \
   -Wl,-z,stack-size=65536 \
   "${OBJECTS[@]}" \
   -o "${OUT}"
 
 if command -v wasm-opt >/dev/null 2>&1; then
-  wasm-opt -Oz --enable-bulk-memory --enable-sign-ext --enable-nontrapping-float-to-int "${OUT}" -o "${OUT}"
+  wasm-opt "${OPT}" --enable-bulk-memory --enable-sign-ext --enable-nontrapping-float-to-int "${OUT}" -o "${OUT}"
 fi
 
 echo "Built ${OUT} ($(stat -f%z "${OUT}" 2>/dev/null || stat -c%s "${OUT}") bytes)"

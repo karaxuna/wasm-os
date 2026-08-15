@@ -16,6 +16,7 @@ static const registrar_t k_registrars[] = {
     {"env", wos_register_env},
     {"esp_lcd", wos_register_esp_lcd},
     {"fs", wos_register_fs},
+    {"gfx", wos_register_gfx},
     {"gpio", wos_register_gpio},
     {"http_client", wos_register_http_client},
     {"i2c_master", wos_register_i2c_master},

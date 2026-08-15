@@ -62,6 +62,29 @@ WOS_IMPORT("esp_lcd", "lcd_new_panel_dpi") int32_t wos_lcd_new_panel_dpi(uint32_
 WOS_IMPORT("esp_lcd", "lcd_panel_init") int32_t wos_lcd_panel_init(uint32_t panel);
 WOS_IMPORT("esp_lcd", "lcd_panel_draw_bitmap") int32_t wos_lcd_panel_draw_bitmap(uint32_t panel, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const void* data, uint32_t data_len);
 
+/* http_client */
+#define WOS_HTTP_METHOD_GET 0
+#define WOS_HTTP_METHOD_POST 1
+
+WOS_IMPORT("http_client", "http_client_config_create") uint32_t wos_http_client_config_create(void);
+WOS_IMPORT("http_client", "http_client_config_set_url") int32_t wos_http_client_config_set_url(uint32_t cfg, const char* url);
+WOS_IMPORT("http_client", "http_client_config_set_method") int32_t wos_http_client_config_set_method(uint32_t cfg, int32_t method);
+WOS_IMPORT("http_client", "http_client_config_set_timeout_ms") int32_t wos_http_client_config_set_timeout_ms(uint32_t cfg, int32_t timeout_ms);
+WOS_IMPORT("http_client", "http_client_config_destroy") int32_t wos_http_client_config_destroy(uint32_t cfg);
+WOS_IMPORT("http_client", "http_client_init") uint32_t wos_http_client_init(uint32_t cfg);
+WOS_IMPORT("http_client", "http_client_set_header") int32_t wos_http_client_set_header(uint32_t client, const char* key, const char* value);
+WOS_IMPORT("http_client", "http_client_open") int32_t wos_http_client_open(uint32_t client, int32_t write_len);
+WOS_IMPORT("http_client", "http_client_write") int32_t wos_http_client_write(uint32_t client, const void* buf, uint32_t len);
+WOS_IMPORT("http_client", "http_client_fetch_headers") int32_t wos_http_client_fetch_headers(uint32_t client);
+WOS_IMPORT("http_client", "http_client_read_response") int32_t wos_http_client_read_response(uint32_t client, void* buf, uint32_t cap);
+WOS_IMPORT("http_client", "http_client_get_status_code") int32_t wos_http_client_get_status_code(uint32_t client);
+WOS_IMPORT("http_client", "http_client_cleanup") int32_t wos_http_client_cleanup(uint32_t client);
+
+/* gfx (native RGB565 fill/blend helpers) */
+WOS_IMPORT("gfx", "gfx_fill_rgb565") int32_t wos_gfx_fill_rgb565(void* dst, int32_t dst_stride, int32_t w, int32_t h, uint32_t color);
+WOS_IMPORT("gfx", "gfx_fill_rgb565_opa") int32_t wos_gfx_fill_rgb565_opa(void* dst, int32_t dst_stride, int32_t w, int32_t h, uint32_t color, uint32_t opa);
+WOS_IMPORT("gfx", "gfx_fill_rgb565_mask") int32_t wos_gfx_fill_rgb565_mask(void* dst, int32_t dst_stride, const void* mask, int32_t mask_stride, int32_t w, int32_t h, uint32_t color, uint32_t opa);
+
 /* i2c_master */
 WOS_IMPORT("i2c_master", "i2c_master_bus_config_create") uint32_t wos_i2c_master_bus_config_create(void);
 WOS_IMPORT("i2c_master", "i2c_master_bus_config_set_i2c_port") int32_t wos_i2c_master_bus_config_set_i2c_port(uint32_t cfg, int32_t port);

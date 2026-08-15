@@ -15,6 +15,7 @@ bool wos_register_callback(void);
 bool wos_register_env(void);
 bool wos_register_esp_lcd(void);
 bool wos_register_fs(void);
+bool wos_register_gfx(void);
 bool wos_register_gpio(void);
 bool wos_register_http_client(void);
 bool wos_register_i2c_master(void);

@@ -14,6 +14,11 @@
 
 #define LV_USE_OS LV_OS_NONE
 
+/* Offload the hot RGB565 fill/blend loops to native wasm-os "gfx" bindings
+ * (see lv_draw_wos.h); interpreted rendering is ~25x slower. */
+#define LV_USE_DRAW_SW_ASM LV_DRAW_SW_ASM_CUSTOM
+#define LV_DRAW_SW_ASM_CUSTOM_INCLUDE "lv_draw_wos.h"
+
 #define LV_USE_LOG 0
 
 /* 10.1" 800x1280 panel */
