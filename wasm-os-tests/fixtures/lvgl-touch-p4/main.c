@@ -89,8 +89,16 @@ int main(void) {
     return 1;
   }
 
-  wos_println("connecting to WiFi (stored credentials)...");
-  if (wos_wifi_connect("", "") < 0 || wos_wifi_wait(30000) != 0) {
+  char ssid[64] = {0};
+  char pass[64] = {0};
+  if (wos_getenv("WIFI_SSID", ssid, sizeof(ssid)) < 0) {
+    wos_println("WIFI_SSID not set");
+    return 1;
+  }
+  wos_getenv("WIFI_PASS", pass, sizeof(pass));
+
+  wos_println("connecting to WiFi...");
+  if (wos_wifi_connect(ssid, pass) < 0 || wos_wifi_wait(30000) != 0) {
     wos_println("wifi connect failed");
     return 1;
   }

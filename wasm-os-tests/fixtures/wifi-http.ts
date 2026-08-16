@@ -1,11 +1,11 @@
-// Connects to WiFi through the "wifi" binding (stored /littlefs/.env
-// credentials) and makes an HTTP request to the web.
+// Reads WIFI_SSID/WIFI_PASS from the app environment (/littlefs/.env),
+// connects through the "wifi" binding, and makes an HTTP request to the web.
 //
-// Serial markers checked by tests/wifi.test.js:
+// Serial markers checked by wifi.test.js:
 //   WIFI_CONNECTED <ip>
 //   HTTP_STATUS <code>
 //   wifi test app done
-import { println } from "./env";
+import { println, getenv } from "./env";
 import { wifiConnect, wifiWait, wifiState, wifiIp } from "./wifi";
 import {
   httpClientConfigCreate,
@@ -24,11 +24,26 @@ function s(text: string): ArrayBuffer {
   return String.UTF8.encode(text, true);
 }
 
+function readEnv(name: string): string | null {
+  const buf = new ArrayBuffer(64);
+  const len = getenv(s(name), <u32>changetype<usize>(buf), 64);
+  if (len < 0 || len >= 64) {
+    return null;
+  }
+  return String.UTF8.decodeUnsafe(changetype<usize>(buf), len);
+}
+
 export function main(): void {
   println(s("wifi test app started"));
 
-  // Empty ssid: the host uses the credentials stored in /littlefs/.env
-  let rc = wifiConnect(s(""), s(""));
+  const ssid = readEnv("WIFI_SSID");
+  const pass = readEnv("WIFI_PASS");
+  if (ssid == null) {
+    println(s("WIFI_SSID_NOT_SET"));
+    return;
+  }
+
+  let rc = wifiConnect(s(ssid), s(pass == null ? "" : pass));
   if (rc != 0) {
     println(s("WIFI_CONNECT_FAILED " + rc.toString()));
     return;

@@ -1,34 +1,21 @@
 #include <string.h>
 
-#include "esp_log.h"
 #include "wasm_export.h"
 
 #include "common.h"
-#include "device_config.h"
 #include "modules.h"
 #include "wifi.h"
 
-static const char* TAG = "wasm_wifi";
-
 /*
- * Empty ssid means "use the credentials stored in /littlefs/.env"
- * (WIFI_SSID/WIFI_PASS), so real credentials never have to pass through the
- * guest. An explicit ssid with an empty pass targets an open network.
+ * Credentials come from the guest: apps typically read WIFI_SSID/WIFI_PASS
+ * from their environment (getenv) and pass them here. An empty pass targets
+ * an open network.
  */
 static int32_t wasm_wifi_connect(wasm_exec_env_t exec_env, char* ssid, char* pass) {
-  const char* use_ssid = ssid;
-  const char* use_pass = pass;
-
   if (!ssid || ssid[0] == '\0') {
-    const device_config_t* config = device_config_get();
-    if (!config->wifi_ssid) {
-      ESP_LOGW(TAG, "No stored WiFi credentials and no SSID given");
-      return WOS_ERR_NOT_FOUND;
-    }
-    use_ssid = config->wifi_ssid;
-    use_pass = config->wifi_pass;
+    return WOS_ERR_INVALID_ARG;
   }
-  return wos_err(wifi_connect_start(use_ssid, use_pass));
+  return wos_err(wifi_connect_start(ssid, pass));
 }
 
 static int32_t wasm_wifi_disconnect(wasm_exec_env_t exec_env) {

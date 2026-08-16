@@ -15,3 +15,9 @@ export declare function delay(milliseconds: u32): void;
 // @ts-ignore
 @external("env", "reboot")
 export declare function reboot(): void;
+
+// snprintf-style: returns the value length and copies value + NUL into buf
+// when cap is large enough; -5 when the variable is not set.
+// @ts-ignore
+@external("env", "getenv")
+export declare function getenv(name: ArrayBuffer, buf: u32, cap: u32): i32;

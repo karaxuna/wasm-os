@@ -1,7 +1,7 @@
 /**
  * Hardware test for the app-initiated "wifi" binding: pushes an
- * AssemblyScript app that connects to WiFi with the stored /littlefs/.env
- * credentials and makes an HTTP request to the web.
+ * AssemblyScript app that reads WIFI_SSID/WIFI_PASS from its environment
+ * (/littlefs/.env), connects, and makes an HTTP request to the web.
  *
  * Needs a connected board and real credentials in wasm-os-tests/.env (see
  * .env.example). Run:

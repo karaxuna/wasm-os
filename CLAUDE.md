@@ -54,12 +54,12 @@ LOG_LEVEL=3
 API_BASE=https://example.com
 ```
 
-`WIFI_SSID`, `WIFI_PASS` and `LOG_LEVEL` are consumed by the firmware
-(`wasm-os-core/main/device_config.c`); **every other key is passed to the WASM app as an
-environment variable**, so credentials are never exposed to the guest. The
-firmware never connects to WiFi on its own: the app initiates it through the
-`wifi` binding, where an empty SSID means "use the stored credentials". Restart
-the device for changes to take effect — the file is read once at boot.
+`LOG_LEVEL` is consumed by the firmware (`wasm-os-core/main/device_config.c`);
+**every other key — including `WIFI_SSID`/`WIFI_PASS` — is passed to the WASM
+app as an environment variable**. The firmware never connects to WiFi on its
+own: the app reads the credentials via the `env` binding (`getenv`) and passes
+them to `wifi_connect` explicitly. Restart the device for changes to take
+effect — the file is read once at boot.
 
 ### Flashing without ESP-IDF
 

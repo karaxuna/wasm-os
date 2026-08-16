@@ -13,6 +13,9 @@
 WOS_IMPORT("env", "println") void wos_println(const char* message);
 WOS_IMPORT("env", "delay") void wos_delay(int32_t milliseconds);
 WOS_IMPORT("env", "millis") uint32_t wos_millis(void);
+/* snprintf-style: returns the value length, copies value + NUL when it fits;
+ * -5 when the variable is not set. */
+WOS_IMPORT("env", "getenv") int32_t wos_getenv(const char* name, char* buf, uint32_t cap);
 
 /* gpio */
 #define WOS_GPIO_MODE_INPUT 1
@@ -62,7 +65,7 @@ WOS_IMPORT("esp_lcd", "lcd_new_panel_dpi") int32_t wos_lcd_new_panel_dpi(uint32_
 WOS_IMPORT("esp_lcd", "lcd_panel_init") int32_t wos_lcd_panel_init(uint32_t panel);
 WOS_IMPORT("esp_lcd", "lcd_panel_draw_bitmap") int32_t wos_lcd_panel_draw_bitmap(uint32_t panel, int32_t x1, int32_t y1, int32_t x2, int32_t y2, const void* data, uint32_t data_len);
 
-/* wifi (empty ssid = use the credentials stored in /littlefs/.env) */
+/* wifi (credentials come from the app, e.g. via wos_getenv) */
 WOS_IMPORT("wifi", "wifi_connect") int32_t wos_wifi_connect(const char* ssid, const char* pass);
 WOS_IMPORT("wifi", "wifi_disconnect") int32_t wos_wifi_disconnect(void);
 WOS_IMPORT("wifi", "wifi_state") int32_t wos_wifi_state(void);

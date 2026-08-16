@@ -114,11 +114,7 @@ void device_config_load(void) {
     char* key = trim(entry);
     char* value = unquote(trim(sep + 1));
 
-    if (strcmp(key, "WIFI_SSID") == 0) {
-      s_config.wifi_ssid = strdup(value);
-    } else if (strcmp(key, "WIFI_PASS") == 0) {
-      s_config.wifi_pass = strdup(value);
-    } else if (strcmp(key, "LOG_LEVEL") == 0) {
+    if (strcmp(key, "LOG_LEVEL") == 0) {
       logger_set_level((esp_log_level_t)atoi(value));
     } else if (env_count < ENV_MAX_VARS) {
       char* pair = join_pair(key, value);
@@ -134,8 +130,7 @@ void device_config_load(void) {
 
   s_config.env = env;
   s_config.env_count = env_count;
-  ESP_LOGI(TAG, "Loaded %s: %u environment variable(s)%s", ENV_PATH, (unsigned)env_count,
-           s_config.wifi_ssid ? ", WiFi configured" : "");
+  ESP_LOGI(TAG, "Loaded %s: %u environment variable(s)", ENV_PATH, (unsigned)env_count);
 }
 
 const device_config_t* device_config_get(void) {

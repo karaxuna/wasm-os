@@ -6,20 +6,16 @@
  * Device configuration read from /littlefs/.env, one KEY=VALUE per line.
  * Blank lines and those starting with '#' are ignored; values may be quoted.
  *
- * Keys consumed by the firmware:
- *   WIFI_SSID / WIFI_PASS - WiFi credentials
- *   LOG_LEVEL             - esp_log_level_t as a number
- *
- * Every other key is passed to the WASM app as an environment variable, so
- * credentials are never handed to the guest.
+ * LOG_LEVEL (esp_log_level_t as a number) is consumed by the firmware; every
+ * other key — including WIFI_SSID/WIFI_PASS — is passed to the WASM app as an
+ * environment variable. Apps read them via the env bindings (getenv) and use
+ * them explicitly, e.g. passing WiFi credentials to wifi_connect.
  *
  * Loaded once at boot; the loaded values live for the firmware's lifetime.
  */
 
 typedef struct {
-  char* wifi_ssid; /* NULL when not configured */
-  char* wifi_pass; /* NULL for open networks */
-  char** env;      /* KEY=VALUE strings handed to WASI */
+  char** env; /* KEY=VALUE strings handed to WASI */
   uint32_t env_count;
 } device_config_t;
 
