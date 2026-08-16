@@ -15,7 +15,14 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, sendAndWaitForResponse, sendCommandWithRetry, autoDetectPort } = require("../src/serial");
+const {
+  openPort,
+  closePort,
+  sendAndWaitForResponse,
+  sendCommandWithRetry,
+  PUSH_BEGIN_TIMEOUT,
+  autoDetectPort,
+} = require("../src/serial");
 const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../..");
@@ -83,7 +90,10 @@ describe("touch button (human in the loop)", () => {
     "builds the app, pushes it, and waits for a human button press",
     async () => {
       console.log("Building touch-button fixture (first run downloads wasi-sdk)...");
-      execSync(`${path.join(FIXTURE_DIR, "build.sh")}`, { stdio: "inherit", timeout: BUILD_TIMEOUT });
+      execSync(`${path.join(FIXTURE_DIR, "build.sh")}`, {
+        stdio: "inherit",
+        timeout: BUILD_TIMEOUT,
+      });
 
       const wasm = fs.readFileSync(APP_WASM);
       console.log(`App size: ${wasm.length} bytes`);
@@ -94,7 +104,9 @@ describe("touch button (human in the loop)", () => {
       const port = await openPort(portPath);
       try {
         console.log("Pushing app...");
-        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"));
+        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"), {
+          timeout: PUSH_BEGIN_TIMEOUT,
+        });
         for (let i = 0; i < wasm.length; i += CHUNK_SIZE) {
           await sendAndWaitForResponse(
             port,

@@ -8,6 +8,9 @@
  *
  *   npm run test:touch:p4
  *
+ * Device settings come from cli/tests/.env (see .env.example) — the app needs
+ * WiFi to fetch its buttons over HTTP.
+ *
  * Env:
  *   WASM_OS_PROFILE     build profile (default esp32p4-16mb-psram)
  *   WASM_OS_SKIP_FLASH  set to 1 when the firmware is already flashed
@@ -15,12 +18,20 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, sendAndWaitForResponse, sendCommandWithRetry, autoDetectPort } = require("../src/serial");
+const {
+  openPort,
+  closePort,
+  sendAndWaitForResponse,
+  sendCommandWithRetry,
+  PUSH_BEGIN_TIMEOUT,
+  autoDetectPort,
+} = require("../src/serial");
 const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../..");
 const FIXTURE_DIR = path.resolve(__dirname, "fixtures/lvgl-touch-p4");
 const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
+const ENV_FILE = path.resolve(__dirname, ".env");
 
 const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
 const PROFILE = process.env.WASM_OS_PROFILE || "esp32p4-16mb-psram";
@@ -30,6 +41,7 @@ const FLASH_TIMEOUT = 300_000;
 const BUILD_TIMEOUT = 900_000; // first run downloads wasi-sdk and compiles LVGL
 const READY_TIMEOUT = 120_000; // LVGL renders 800x1280 through the interpreter
 const HUMAN_TIMEOUT = 60_000;
+const WIFI_TIMEOUT = 45_000; // wifi_connect gives up after 30s
 
 let portPath;
 
@@ -52,6 +64,34 @@ function waitForMarker(port, marker, timeoutMs) {
     };
 
     port.on("data", onData);
+  });
+}
+
+/** Stream a file to /littlefs/<name> over the serial protocol. */
+async function pushFile(port, data, name) {
+  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, name), {
+    timeout: PUSH_BEGIN_TIMEOUT,
+  });
+  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+    await sendAndWaitForResponse(port, buildPushDataFrame(data.subarray(i, Math.min(i + CHUNK_SIZE, data.length))));
+  }
+  await sendAndWaitForResponse(port, buildPushEndFrame());
+}
+
+/**
+ * Pulse EN via RTS while leaving IO0 (DTR) high, so the chip reboots into the
+ * application rather than the ROM downloader. Device settings are only read at
+ * boot, so pushing .env is pointless without this.
+ */
+function hardReset(port) {
+  return new Promise((resolve) => {
+    port.set({ dtr: false, rts: true }, () => {
+      setTimeout(() => {
+        port.set({ dtr: false, rts: false }, () => {
+          return resolve();
+        });
+      }, 150);
+    });
   });
 }
 
@@ -83,7 +123,10 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
     "builds the LVGL app, pushes it, and waits for a human button press",
     async () => {
       console.log("Building lvgl-touch-p4 fixture (first run downloads wasi-sdk + LVGL)...");
-      execSync(`${path.join(FIXTURE_DIR, "build.sh")}`, { stdio: "inherit", timeout: BUILD_TIMEOUT });
+      execSync(`${path.join(FIXTURE_DIR, "build.sh")}`, {
+        stdio: "inherit",
+        timeout: BUILD_TIMEOUT,
+      });
 
       const wasm = fs.readFileSync(APP_WASM);
       console.log(`App size: ${wasm.length} bytes`);
@@ -93,15 +136,26 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
 
       const port = await openPort(portPath);
       try {
-        console.log("Pushing app...");
-        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"));
-        for (let i = 0; i < wasm.length; i += CHUNK_SIZE) {
-          await sendAndWaitForResponse(
-            port,
-            buildPushDataFrame(wasm.subarray(i, Math.min(i + CHUNK_SIZE, wasm.length)))
-          );
+        const hasEnv = fs.existsSync(ENV_FILE);
+        if (hasEnv) {
+          console.log("Pushing device settings (.env)...");
+          await pushFile(port, fs.readFileSync(ENV_FILE), ".env");
+        } else {
+          console.log(`No ${ENV_FILE}; the app cannot fetch buttons without WiFi.`);
         }
-        await sendAndWaitForResponse(port, buildPushEndFrame());
+
+        console.log("Pushing app...");
+        await pushFile(port, wasm, "main.wasm");
+
+        /* Push before rebooting, not after: settings are only read at boot,
+         * and a freshly booted app blocks the serial task through its first
+         * full-screen render, which starves an in-flight transfer. */
+        console.log("Rebooting...");
+        await hardReset(port);
+        if (hasEnv) {
+          await waitForMarker(port, "Got IP:", WIFI_TIMEOUT);
+          console.log("Device online.");
+        }
 
         console.log("Waiting for the app to draw its UI...");
         await waitForMarker(port, "UI_READY", READY_TIMEOUT);
@@ -117,6 +171,6 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
         await closePort(port);
       }
     },
-    BUILD_TIMEOUT + READY_TIMEOUT + HUMAN_TIMEOUT + 60_000
+    BUILD_TIMEOUT + WIFI_TIMEOUT + READY_TIMEOUT + HUMAN_TIMEOUT + 60_000
   );
 });

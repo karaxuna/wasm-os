@@ -2,13 +2,15 @@ const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const { SerialPort } = require("serialport");
-const { openPort, closePort, sendAndWaitForResponse, sendCommandWithRetry, autoDetectPort } = require("../src/serial");
 const {
-  buildPushBeginFrame,
-  buildPushDataFrame,
-  buildPushEndFrame,
-  CHUNK_SIZE,
-} = require("../src/protocol");
+  openPort,
+  closePort,
+  sendAndWaitForResponse,
+  sendCommandWithRetry,
+  PUSH_BEGIN_TIMEOUT,
+  autoDetectPort,
+} = require("../src/serial");
+const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../..");
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
@@ -91,7 +93,9 @@ describe("push wasm", () => {
       let output;
       try {
         // Opening the port resets auto-reset boards; retry until the device answers.
-        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"));
+        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"), {
+          timeout: PUSH_BEGIN_TIMEOUT,
+        });
 
         for (let i = 0; i < wasm.length; i += CHUNK_SIZE) {
           const chunk = wasm.subarray(i, Math.min(i + CHUNK_SIZE, wasm.length));

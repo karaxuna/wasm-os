@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "modules.h"
+#include "priorities.h"
 
 /*
  * Guest task spawning. Each spawned FreeRTOS task gets its own exec env via
@@ -64,7 +65,10 @@ static int32_t wasm_task_spawn(wasm_exec_env_t exec_env, uint32_t table_idx, cha
              MAX_TASK_STACK_BYTES);
     return WOS_ERR_INVALID_ARG;
   }
-  if (priority < 0 || priority >= configMAX_PRIORITIES) {
+  /* Capped below the serial handler: a guest that outranked it could spin and
+   * make the device unreachable over serial until it was reflashed. */
+  if (priority < 0 || priority > WOS_PRIO_GUEST_MAX) {
+    ESP_LOGE(TAG, "Task priority %d out of range [0, %d]", (int)priority, WOS_PRIO_GUEST_MAX);
     return WOS_ERR_INVALID_ARG;
   }
   if (core < -1 || core >= (int32_t)portNUM_PROCESSORS) {

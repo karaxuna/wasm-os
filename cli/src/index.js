@@ -4,14 +4,22 @@ const fs = require("fs");
 const path = require("path");
 const { program } = require("commander");
 const { withDevice, resolvePort } = require("./device");
-const { openPort, sendAndWaitForResponse, sendCommandWithRetry, DEFAULT_BAUD } = require("./serial");
+const {
+  openPort,
+  sendAndWaitForResponse,
+  sendCommandWithRetry,
+  PUSH_BEGIN_TIMEOUT,
+  DEFAULT_BAUD,
+} = require("./serial");
 const {
   buildPushBeginFrame,
   buildPushDataFrame,
   buildPushEndFrame,
   buildRestartFrame,
+  buildDeleteFrame,
   CHUNK_SIZE,
 } = require("./protocol");
+const { connect, flashImage, FLASH_BAUD } = require("./flash");
 
 function portOptions(command) {
   return command
@@ -26,7 +34,9 @@ function fail(err) {
 
 async function pushFile(port, data, destName) {
   process.stdout.write("Starting transfer... ");
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, destName));
+  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, destName), {
+    timeout: PUSH_BEGIN_TIMEOUT,
+  });
   console.log("OK");
 
   const totalChunks = Math.ceil(data.length / CHUNK_SIZE);
@@ -73,6 +83,26 @@ portOptions(
   }
 });
 
+portOptions(
+  program
+    .command("delete")
+    .alias("rm")
+    .description("Delete files from the device filesystem")
+    .argument("<files...>", "Filenames on the device")
+).action(async (files, opts) => {
+  try {
+    await withDevice(opts, async (port) => {
+      for (const name of files) {
+        process.stdout.write(`Deleting ${name}... `);
+        await sendCommandWithRetry(port, buildDeleteFrame(name));
+        console.log("OK");
+      }
+    });
+  } catch (err) {
+    fail(err);
+  }
+});
+
 portOptions(program.command("restart").description("Restart the WASM module on the device")).action(async (opts) => {
   try {
     await withDevice(opts, async (port) => {
@@ -108,6 +138,67 @@ portOptions(program.command("monitor").description("Stream serial output from th
     fail(err);
   }
 });
+
+program
+  .command("flash")
+  .description("Flash a wasm-os firmware image to the device")
+  .argument("<image>", "Path to a merged firmware .bin")
+  .option("-p, --port <path>", "Serial port path (auto-detected if omitted)")
+  .option("-b, --baud <rate>", "Flash baud rate", String(FLASH_BAUD))
+  .option("-a, --address <offset>", "Flash offset (hex or decimal)", "0")
+  .option("--erase", "Erase the whole flash first (also destroys littlefs and the pushed app)")
+  .action(async (image, opts) => {
+    try {
+      const imagePath = path.resolve(image);
+      if (!fs.existsSync(imagePath)) {
+        throw new Error(`Image not found: ${imagePath}`);
+      }
+
+      const data = fs.readFileSync(imagePath);
+      const address = parseInt(opts.address, opts.address.startsWith("0x") ? 16 : 10);
+      if (Number.isNaN(address)) {
+        throw new Error(`Invalid address: ${opts.address}`);
+      }
+
+      const portPath = await resolvePort(opts);
+      console.log(`Port: ${portPath}`);
+      console.log(`Image: ${imagePath} (${data.length} bytes) -> 0x${address.toString(16)}`);
+
+      await flashImage(portPath, data, {
+        address,
+        baud: parseInt(opts.baud, 10) || FLASH_BAUD,
+        eraseAll: Boolean(opts.erase),
+      });
+      console.log("Flash complete. Device restarted.");
+    } catch (err) {
+      fail(err);
+    }
+  });
+
+program
+  .command("info")
+  .description("Detect the connected chip and its flash size")
+  .option("-p, --port <path>", "Serial port path (auto-detected if omitted)")
+  .action(async (opts) => {
+    try {
+      const portPath = await resolvePort(opts);
+      const { loader, transport, chip } = await connect(portPath, {
+        quiet: true,
+      });
+
+      try {
+        const flashId = await loader.readFlashId();
+        const sizeMb = Math.pow(2, (flashId >> 16) & 0xff) / (1024 * 1024);
+        console.log(`Port:  ${portPath}`);
+        console.log(`Chip:  ${chip}`);
+        console.log(`Flash: ${sizeMb} MB`);
+      } finally {
+        await transport.disconnect();
+      }
+    } catch (err) {
+      fail(err);
+    }
+  });
 
 program
   .command("ports")

@@ -25,7 +25,6 @@ static const registrar_t k_registrars[] = {
     {"shared_memory", wos_register_shared_memory},
     {"socket", wos_register_socket},
     {"spi_master", wos_register_spi_master},
-    {"storage", wos_register_storage},
     {"task", wos_register_task},
     {"wasi", wos_register_wasi},
     {"websocket", wos_register_websocket},

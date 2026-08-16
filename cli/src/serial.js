@@ -4,6 +4,14 @@ const { RSP, parseResponse } = require("./protocol");
 const DEFAULT_BAUD = 115200;
 const RESPONSE_TIMEOUT = 10000;
 
+/**
+ * PUSH_BEGIN stops the running app before it ACKs, and the device allows a
+ * spinning guest APP_STOP_TIMEOUT_MS (10s in main/app_runtime.c) to tear down
+ * before force-deleting it. Wait past that bound, or pushing over a busy app
+ * times out on a device that is behaving correctly.
+ */
+const PUSH_BEGIN_TIMEOUT = 15000;
+
 function openPort(path, baudRate = DEFAULT_BAUD) {
   return new Promise((resolve, reject) => {
     const port = new SerialPort({ path, baudRate }, (err) => {
@@ -143,4 +151,5 @@ module.exports = {
   sendCommandWithRetry,
   autoDetectPort,
   DEFAULT_BAUD,
+  PUSH_BEGIN_TIMEOUT,
 };

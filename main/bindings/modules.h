@@ -24,7 +24,6 @@ bool wos_register_output(void);
 bool wos_register_shared_memory(void);
 bool wos_register_socket(void);
 bool wos_register_spi_master(void);
-bool wos_register_storage(void);
 bool wos_register_task(void);
 bool wos_register_wasi(void);
 bool wos_register_websocket(void);

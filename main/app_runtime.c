@@ -13,6 +13,7 @@
 
 #include "bindings/bindings.h"
 #include "device_config.h"
+#include "priorities.h"
 #include "wasm_alloc.h"
 #include "wasm_export.h"
 
@@ -37,7 +38,6 @@
 #define APP_LINEAR_RESERVE_BYTES (66 * 1024)
 #define APP_MAX_WASM_THREADS 4
 
-#define APP_TASK_PRIORITY 10
 #define APP_STOP_TIMEOUT_MS 10000
 #define APP_TASK_DRAIN_TIMEOUT_MS 2000
 
@@ -274,7 +274,7 @@ esp_err_t app_runtime_start(void) {
   }
 
   xEventGroupClearBits(s_app.events, BIT_STOP_REQUESTED | BIT_STOPPED);
-  BaseType_t created = xTaskCreatePinnedToCore(app_task, "wasm_app", APP_TASK_STACK_BYTES, NULL, APP_TASK_PRIORITY,
+  BaseType_t created = xTaskCreatePinnedToCore(app_task, "wasm_app", APP_TASK_STACK_BYTES, NULL, WOS_PRIO_APP,
                                                &s_app.task, APP_CORE);
   xSemaphoreGive(s_app.lock);
 

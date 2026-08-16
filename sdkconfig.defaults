@@ -43,3 +43,9 @@ CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
 # WAMR: thread manager (spawned exec envs for the task bindings)
 #
 CONFIG_WAMR_ENABLE_LIB_PTHREAD=y
+
+#
+# No NVS: device config lives in /littlefs/.env, so the WiFi stack must not
+# expect an NVS store either.
+#
+CONFIG_ESP_WIFI_NVS_ENABLED=n

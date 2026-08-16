@@ -8,6 +8,7 @@ const CMD = {
   PUSH_DATA: 0x02,
   PUSH_END: 0x03,
   RESTART: 0x04,
+  DELETE: 0x05,
 };
 
 const RSP = {
@@ -51,6 +52,11 @@ function buildRestartFrame() {
   return buildFrame(CMD.RESTART);
 }
 
+// DELETE payload: [filename:utf8]
+function buildDeleteFrame(filename) {
+  return buildFrame(CMD.DELETE, Buffer.from(filename, "utf8"));
+}
+
 /**
  * Scan a byte buffer for the next complete frame (device log output may
  * surround it). Returns { cmd, payload, consumed } — `consumed` is the
@@ -88,5 +94,6 @@ module.exports = {
   buildPushDataFrame,
   buildPushEndFrame,
   buildRestartFrame,
+  buildDeleteFrame,
   parseResponse,
 };

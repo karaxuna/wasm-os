@@ -9,13 +9,15 @@
     "test": "npm run test:unit",
     "test:unit": "jest tests/protocol.test.js",
     "test:hw": "jest --runInBand tests/hardware.test.js",
+    "test:priority": "jest --runInBand tests/priority.test.js",
     "test:touch": "jest --runInBand tests/touch-button.test.js",
     "test:touch:p4": "jest --runInBand tests/touch-lvgl-p4.test.js",
     "lint": "echo ok"
   },
   "dependencies": {
     "serialport": "^12.0.0",
-    "commander": "^13.0.0"
+    "commander": "^13.0.0",
+    "esptool-js": "^0.6.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",

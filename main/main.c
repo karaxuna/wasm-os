@@ -8,7 +8,6 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "nvs_flash.h"
 
 #include "app_runtime.h"
 #include "device_config.h"
@@ -35,15 +34,6 @@ static void init_littlefs(void) {
   }
 }
 
-static void init_nvs(void) {
-  esp_err_t err = nvs_flash_init();
-  if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    err = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(err);
-}
-
 static void connect_wifi_if_configured(void) {
   const device_config_t* config = device_config_get();
   if (!config->wifi_ssid) {
@@ -60,7 +50,6 @@ void app_main(void) {
   logger_init();
 
   init_littlefs();
-  init_nvs();
   ESP_ERROR_CHECK(esp_netif_init());
   ESP_ERROR_CHECK(esp_event_loop_create_default());
 

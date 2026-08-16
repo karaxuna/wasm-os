@@ -8,6 +8,7 @@ const {
   buildPushDataFrame,
   buildPushEndFrame,
   buildRestartFrame,
+  buildDeleteFrame,
   parseResponse,
 } = require("../src/protocol");
 
@@ -39,6 +40,13 @@ describe("frame building", () => {
 
   it("builds a RESTART frame", () => {
     expect(buildRestartFrame()[4]).toBe(CMD.RESTART);
+  });
+
+  it("encodes DELETE as a bare filename", () => {
+    const frame = buildDeleteFrame("probe.bin");
+    expect(frame[4]).toBe(CMD.DELETE);
+    expect(frame.readUInt32LE(5)).toBe("probe.bin".length);
+    expect(frame.subarray(FRAME_HEADER_SIZE).toString("utf8")).toBe("probe.bin");
   });
 });
 

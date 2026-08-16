@@ -19,6 +19,7 @@
 #endif
 
 #include "app_runtime.h"
+#include "priorities.h"
 
 #define TAG "serial_cmd"
 
@@ -41,22 +42,35 @@
  */
 #define PUSH_TMP_PATH LITTLEFS_PREFIX ".push.tmp"
 
+#define PATH_BUF_SIZE (sizeof(LITTLEFS_PREFIX) + MAX_FILENAME_LEN)
+
 typedef struct {
   FILE* file;        /* NULL when no transfer is in progress */
   uint32_t expected; /* total bytes announced by PUSH_BEGIN */
   uint32_t received;
-  char path[sizeof(LITTLEFS_PREFIX) + MAX_FILENAME_LEN];
+  bool resume_app; /* the app must be (re)started once this transfer ends */
+  char path[PATH_BUF_SIZE];
 } push_transfer_t;
 
 static push_transfer_t s_transfer;
 static int s_console_fd = -1;
 
+/*
+ * Ends the current transfer. Every path out of a push funnels through here,
+ * so an interrupted transfer can never leave the app stopped for good.
+ */
 static void transfer_reset(void) {
   if (s_transfer.file) {
     fclose(s_transfer.file);
     unlink(PUSH_TMP_PATH);
   }
+
+  bool resume_app = s_transfer.resume_app;
   memset(&s_transfer, 0, sizeof(s_transfer));
+
+  if (resume_app) {
+    app_runtime_start();
+  }
 }
 
 static void send_response(uint8_t response_code, const char* message) {
@@ -87,9 +101,31 @@ static void nak(const char* message) {
   send_response(SERIAL_RSP_NAK, message);
 }
 
-static void handle_push_begin(const uint8_t* payload, uint32_t len) {
-  transfer_reset();
+/*
+ * Validate a flat-namespace filename and expand it into /littlefs/<name>.
+ * Returns NULL on success, or the message to NAK with.
+ */
+static const char* resolve_path(const uint8_t* name, uint32_t name_len, char* out) {
+  if (name_len == 0) {
+    return "Missing filename";
+  }
+  if (name_len > MAX_FILENAME_LEN) {
+    return "Filename too long";
+  }
+  for (uint32_t i = 0; i < name_len; i++) {
+    if (name[i] == '/' || name[i] == '\\' || name[i] == '\0') {
+      return "Invalid filename";
+    }
+  }
 
+  size_t prefix_len = strlen(LITTLEFS_PREFIX);
+  memcpy(out, LITTLEFS_PREFIX, prefix_len);
+  memcpy(out + prefix_len, name, name_len);
+  out[prefix_len + name_len] = '\0';
+  return NULL;
+}
+
+static void handle_push_begin(const uint8_t* payload, uint32_t len) {
   if (len < 4) {
     nak("Invalid push begin payload");
     return;
@@ -102,34 +138,45 @@ static void handle_push_begin(const uint8_t* payload, uint32_t len) {
   }
 
   /* The rest of the payload is the destination filename (flat namespace). */
-  const uint8_t* name = payload + 4;
-  uint32_t name_len = len - 4;
-  if (name_len == 0) {
-    nak("Missing filename");
+  char path[PATH_BUF_SIZE];
+  const char* err = resolve_path(payload + 4, len - 4, path);
+  if (err) {
+    nak(err);
     return;
   }
-  if (name_len > MAX_FILENAME_LEN) {
-    nak("Filename too long");
-    return;
+
+  /* Validation is done, so it is safe to disturb state. Carry a previous
+   * abandoned transfer's obligation forward instead of letting transfer_reset()
+   * restart an app that is about to be stopped again. */
+  bool resume_app = s_transfer.resume_app;
+  s_transfer.resume_app = false;
+  transfer_reset();
+
+  memcpy(s_transfer.path, path, sizeof(path));
+
+  /*
+   * Stop the app up front rather than at PUSH_END: a running app starves this
+   * task — an LVGL app's first full-screen render blocks for seconds without
+   * yielding — which stalls the transfer and times the CLI out. A non-app file
+   * only resumes what was already running; main.wasm always starts, so a push
+   * to a stopped device still runs the new app.
+   */
+  bool is_main_app = strcmp(s_transfer.path, MAIN_WASM_PATH) == 0;
+  bool was_running = app_runtime_is_running();
+  if (was_running) {
+    app_runtime_stop();
   }
-  for (uint32_t i = 0; i < name_len; i++) {
-    if (name[i] == '/' || name[i] == '\\' || name[i] == '\0') {
-      nak("Invalid filename");
-      return;
-    }
-  }
+  s_transfer.resume_app = resume_app || was_running || is_main_app;
 
   s_transfer.file = fopen(PUSH_TMP_PATH, "wb");
   if (!s_transfer.file) {
     ESP_LOGE(TAG, "Failed to open %s for writing", PUSH_TMP_PATH);
+    transfer_reset();
     nak("Failed to open file");
     return;
   }
   s_transfer.expected = total;
   s_transfer.received = 0;
-  memcpy(s_transfer.path, LITTLEFS_PREFIX, strlen(LITTLEFS_PREFIX));
-  memcpy(s_transfer.path + strlen(LITTLEFS_PREFIX), name, name_len);
-  s_transfer.path[strlen(LITTLEFS_PREFIX) + name_len] = '\0';
 
   ESP_LOGI(TAG, "Push begin: expecting %lu bytes -> %s", (unsigned long)total, s_transfer.path);
   send_response(SERIAL_RSP_ACK, NULL);
@@ -178,30 +225,43 @@ static void handle_push_end(void) {
   }
   s_transfer.file = NULL;
 
-  /* The app is stopped only once the payload is fully on flash, then the
-   * temp file atomically replaces the target. */
-  bool is_main_app = strcmp(s_transfer.path, MAIN_WASM_PATH) == 0;
-  if (is_main_app) {
-    app_runtime_stop();
-  }
-
+  /* The temp file atomically replaces the target. */
   if (rename(PUSH_TMP_PATH, s_transfer.path) != 0) {
     ESP_LOGE(TAG, "Failed to rename %s -> %s", PUSH_TMP_PATH, s_transfer.path);
-    transfer_reset();
+    unlink(PUSH_TMP_PATH);
+    transfer_reset(); /* restarts the app; the old main.wasm is still intact */
     nak("Write failed");
-    if (is_main_app) {
-      app_runtime_start(); /* old main.wasm is still intact */
-    }
     return;
   }
 
   ESP_LOGI(TAG, "Wrote %lu bytes to %s", (unsigned long)s_transfer.expected, s_transfer.path);
-  transfer_reset();
+  /* ACK before restarting: starting the app takes long enough to time the
+   * CLI out if it had to wait for it. */
   send_response(SERIAL_RSP_ACK, NULL);
+  transfer_reset();
+}
 
-  if (is_main_app) {
-    app_runtime_start();
+/*
+ * Removes a file from littlefs. Deliberately has no effect on the app: a
+ * running instance is already loaded into memory, so deleting main.wasm only
+ * takes effect on the next start.
+ */
+static void handle_delete(const uint8_t* payload, uint32_t len) {
+  char path[PATH_BUF_SIZE];
+  const char* err = resolve_path(payload, len, path);
+  if (err) {
+    nak(err);
+    return;
   }
+
+  if (unlink(path) != 0) {
+    ESP_LOGW(TAG, "Failed to delete %s", path);
+    nak("File not found");
+    return;
+  }
+
+  ESP_LOGI(TAG, "Deleted %s", path);
+  send_response(SERIAL_RSP_ACK, NULL);
 }
 
 static void handle_restart(void) {
@@ -240,6 +300,9 @@ static void dispatch(uint8_t cmd, const uint8_t* payload, uint32_t len) {
       break;
     case SERIAL_CMD_PUSH_END:
       handle_push_end();
+      break;
+    case SERIAL_CMD_DELETE:
+      handle_delete(payload, len);
       break;
     case SERIAL_CMD_RESTART:
       handle_restart();
@@ -325,7 +388,8 @@ esp_err_t serial_cmd_init(void) {
     fcntl(s_console_fd, F_SETFL, flags | O_NONBLOCK);
   }
 
-  if (xTaskCreate(serial_cmd_task, "serial_cmd", SERIAL_TASK_STACK_BYTES, NULL, 5, NULL) != pdPASS) {
+  if (xTaskCreate(serial_cmd_task, "serial_cmd", SERIAL_TASK_STACK_BYTES, NULL, WOS_PRIO_SERIAL_CMD, NULL) !=
+      pdPASS) {
     ESP_LOGE(TAG, "Failed to create serial command task");
     return ESP_ERR_NO_MEM;
   }

@@ -13,6 +13,7 @@
 #define SERIAL_CMD_PUSH_DATA 0x02  // File data chunk
 #define SERIAL_CMD_PUSH_END 0x03   // End file transfer, write to flash
 #define SERIAL_CMD_RESTART 0x04    // Restart WASM module
+#define SERIAL_CMD_DELETE 0x05     // Delete a file: payload = filename
 
 // Responses from device to CLI
 #define SERIAL_RSP_ACK 0x80
