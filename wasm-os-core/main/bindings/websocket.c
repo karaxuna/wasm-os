@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_crt_bundle.h"
 #include "esp_log.h"
 #include "esp_websocket_client.h"
 #include "freertos/FreeRTOS.h" // IWYU pragma: keep
@@ -96,6 +97,8 @@ static uint32_t wasm_websocket_client_connect(wasm_exec_env_t exec_env, char* ur
       .buffer_size = WS_BUFFER_SIZE,
       .ping_interval_sec = 5,
       .reconnect_timeout_ms = 5000,
+      /* wss:// verifies against the built-in certificate bundle. */
+      .crt_bundle_attach = esp_crt_bundle_attach,
   };
 
   ws_client_t* ws = calloc(1, sizeof(ws_client_t));

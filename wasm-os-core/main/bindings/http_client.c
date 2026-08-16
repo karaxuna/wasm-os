@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_crt_bundle.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "wasm_export.h"
@@ -103,6 +104,8 @@ static uint32_t wasm_http_client_init(wasm_exec_env_t exec_env, uint32_t config_
     return WOS_HANDLE_INVALID;
   }
 
+  /* HTTPS verifies against the built-in certificate bundle. */
+  cfg->config.crt_bundle_attach = esp_crt_bundle_attach;
   wrapper->client = esp_http_client_init(&cfg->config);
   if (!wrapper->client) {
     ESP_LOGE(TAG, "Failed to initialize HTTP client");
