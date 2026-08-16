@@ -12,7 +12,8 @@ npm-workspaces monorepo (root `package.json` is the version source and workspace
 - `wasm-os-core/main/` - the firmware component
 - `wasm-os-core/main/bindings/` - WASM-facing host API (one module per file, `.wit` docs alongside)
 - `wasm-os-core/profiles/` - Build profiles for different ESP32 variants
-- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): the serial protocol (pure Uint8Array, browser-safe), a transport-agnostic device client, and Node (node-serialport) + browser (Web Serial) transports; unit tests in `wasm-os-sdk/tests/`
+- `mklfs/` - standalone npm package `mklfs`: littlefs images built in pure JS (littlefs compiled to an import-free WASM module); its littlefs version must match wasm-os-core's esp_littlefs — bump together
+- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): the serial protocol (pure Uint8Array, browser-safe), a transport-agnostic device client, Node (node-serialport) + browser (Web Serial) transports, and ESP-IDF partition-table parsing; unit tests in `wasm-os-sdk/tests/`
 - `wasm-os-cli/` - Node.js CLI (npm package `wasm-os`), a thin commander wrapper over wasm-os-sdk plus esptool-js flashing
 - `wasm-os-tests/` - hardware/e2e suites spanning firmware + CLI, with the WASM fixtures and toolchain fetch scripts
 
@@ -80,9 +81,9 @@ partitions with `0xFF`. It ends below `littlefs`, so both the pushed `.wasm`
 app and the `.env` config survive a firmware flash. `--erase` wipes littlefs
 too, which does destroy them.
 
-`--app`/`--env` bundle a littlefs partition into the same flash: the SDK
-builds the filesystem image in-process (littlefs compiled to WASM in
-`wasm-os-sdk/mklfs/`, pinned to the firmware's lfs version and geometry —
+`--app`/`--env` bundle a littlefs partition into the same flash: the CLI
+builds the filesystem image in-process (the `mklfs` package — littlefs
+compiled to WASM, pinned to the firmware's lfs version and geometry —
 bump them together), locates the partition by parsing the partition table at
 `0x8000` inside the image, and writes the whole partition image — esptool
 erases exactly what it writes, and the full region must be erased or stale
@@ -103,7 +104,7 @@ lost and the wrong reset sequence is chosen.
 All runnable from the repo root; `npm test` never touches hardware.
 
 ```bash
-npm test                 # SDK protocol unit tests (wasm-os-sdk/tests, no hardware)
+npm test                 # unit tests across workspaces (mklfs + wasm-os-sdk, no hardware)
 npm run test:hw          # hardware integration (requires connected ESP32)
 npm run test:wifi        # hardware: app connects to WiFi via the wifi binding and makes an HTTP request (needs wasm-os-tests/.env credentials)
 npm run test:supervisor  # hardware: two-slot runtime — a supervisor app starts/stops/reclaims child apps

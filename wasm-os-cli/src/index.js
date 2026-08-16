@@ -7,7 +7,7 @@ const { withDevice, resolvePort } = require("./device");
 const { openNodeSerialTransport, listPorts, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
 const { CHUNK_SIZE } = require("wasm-os-sdk/src/protocol");
 const { connect, flashSegments, hardReset, FLASH_BAUD } = require("./flash");
-const { buildLittlefsImage } = require("wasm-os-sdk/src/mklfs");
+const { buildLittlefsImage } = require("mklfs");
 const { findPartition } = require("wasm-os-sdk/src/partitions");
 
 function portOptions(command) {

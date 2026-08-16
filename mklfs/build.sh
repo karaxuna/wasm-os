@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Compile mklfs.c + littlefs to ../assets/mklfs.wasm with wasi-sdk (fetched
-# via wasm-os-tests/scripts on first run). The artifact is committed, so this
+# Compile mklfs.c + littlefs to assets/mklfs.wasm with wasi-sdk (fetched via
+# wasm-os-tests/scripts on first run). The artifact is committed, so this
 # only needs re-running when mklfs.c changes or littlefs is bumped.
 #
-# LITTLEFS_VERSION must match the lfs version vendored by the firmware's
-# joltwallet__littlefs component (LFS_VERSION in its lfs.h).
+# LITTLEFS_VERSION must match the lfs version vendored by the wasm-os
+# firmware's joltwallet__littlefs component (LFS_VERSION in its lfs.h).
 set -euo pipefail
 
 LITTLEFS_VERSION=2.11.0
 
 MKLFS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="${MKLFS_DIR}/../../wasm-os-tests/scripts"
+SCRIPTS_DIR="${MKLFS_DIR}/../wasm-os-tests/scripts"
 LFS_DIR="${MKLFS_DIR}/littlefs"
-OUT="${MKLFS_DIR}/../assets/mklfs.wasm"
+OUT="${MKLFS_DIR}/assets/mklfs.wasm"
 
 WASI_SDK="$("${SCRIPTS_DIR}/fetch-wasi-sdk.sh")"
 CLANG="${WASI_SDK}/bin/clang"
