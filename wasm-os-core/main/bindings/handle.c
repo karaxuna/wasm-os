@@ -7,7 +7,7 @@
 
 static const char* TAG = "wos_handle";
 
-#define HANDLE_TABLE_SIZE 64
+#define HANDLE_TABLE_SIZE 96
 #define HANDLE_INDEX_BITS 8
 #define HANDLE_INDEX_MASK ((1u << HANDLE_INDEX_BITS) - 1u)
 
@@ -18,6 +18,7 @@ typedef struct {
   const wos_handle_type_t* type; /* NULL = free slot */
   void* ptr;
   uint32_t generation;
+  wos_slot_t owner;
 } handle_slot_t;
 
 static handle_slot_t s_slots[HANDLE_TABLE_SIZE];
@@ -42,12 +43,15 @@ wos_handle_t wos_handle_create(const wos_handle_type_t* type, void* ptr) {
     return WOS_HANDLE_INVALID;
   }
 
+  wos_slot_t owner = wos_owner_current();
+
   wos_handle_t handle = WOS_HANDLE_INVALID;
   xSemaphoreTake(s_lock, portMAX_DELAY);
   for (int i = 0; i < HANDLE_TABLE_SIZE; i++) {
     if (s_slots[i].type == NULL) {
       s_slots[i].type = type;
       s_slots[i].ptr = ptr;
+      s_slots[i].owner = owner;
       handle = (s_slots[i].generation << HANDLE_INDEX_BITS) | (uint32_t)i;
       break;
     }
@@ -117,7 +121,7 @@ int32_t wos_handle_destroy(wos_handle_t handle, const wos_handle_type_t* type) {
   return WOS_OK;
 }
 
-void wos_handles_destroy_all(void) {
+void wos_handles_destroy_owned(wos_slot_t owner) {
   if (!s_lock) {
     return;
   }
@@ -127,10 +131,12 @@ void wos_handles_destroy_all(void) {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     const wos_handle_type_t* type = s_slots[i].type;
     void* ptr = s_slots[i].ptr;
-    if (type) {
+    if (type && s_slots[i].owner == owner) {
       s_slots[i].type = NULL;
       s_slots[i].ptr = NULL;
       s_slots[i].generation = next_generation(s_slots[i].generation);
+    } else {
+      type = NULL;
     }
     xSemaphoreGive(s_lock);
 

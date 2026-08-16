@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "owner.h"
+
 /**
  * Typed handle table for host resources exposed to WASM guests.
  *
@@ -13,8 +15,10 @@
  * handle passed where an i2s channel was expected). A forged or stale handle
  * can therefore never reach a native pointer.
  *
- * The table also owns cleanup: when an app is torn down,
- * wos_handles_destroy_all() releases everything the guest leaked.
+ * The table also owns cleanup: every handle is stamped with the slot that
+ * created it (wos_owner_current() at creation time), and when a slot is torn
+ * down wos_handles_destroy_owned() releases everything that slot leaked —
+ * and nothing the other slot still uses.
  */
 
 typedef uint32_t wos_handle_t;
@@ -47,5 +51,5 @@ void* wos_handle_deref(wos_handle_t handle, const wos_handle_type_t* type);
  */
 int32_t wos_handle_destroy(wos_handle_t handle, const wos_handle_type_t* type);
 
-/** Destroy every live resource. Called when the app is torn down. */
-void wos_handles_destroy_all(void);
+/** Destroy every live resource owned by `owner`. Called at slot teardown. */
+void wos_handles_destroy_owned(wos_slot_t owner);

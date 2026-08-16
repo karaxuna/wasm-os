@@ -13,6 +13,10 @@ export declare function println(message: ArrayBuffer): void;
 export declare function delay(milliseconds: u32): void;
 
 // @ts-ignore
+@external("env", "millis")
+export declare function millis(): u32;
+
+// @ts-ignore
 @external("env", "reboot")
 export declare function reboot(): void;
 

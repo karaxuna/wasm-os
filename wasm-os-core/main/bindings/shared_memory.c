@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "modules.h"
+#include "owner.h"
 
 /*
  * Memory-sharing registry: an app exports a region of its linear memory by
@@ -21,7 +22,8 @@ static const char* TAG = "wasm_shared_memory";
 
 typedef struct {
   wasm_module_inst_t owner;
-  uint64_t addr; /* guest address in the owner's memory */
+  wos_slot_t owner_slot; /* regions are visible only within their slot */
+  uint64_t addr;         /* guest address in the owner's memory */
   uint32_t len;
   bool in_use;
 } shared_region_t;
@@ -29,9 +31,12 @@ typedef struct {
 static shared_region_t s_regions[MAX_SHARED_REGIONS];
 static SemaphoreHandle_t s_lock;
 
+/* Regions are keyed by guest address, which two instances can collide on,
+ * so lookups are always scoped to the calling slot. */
 static shared_region_t* find_locked(uint64_t addr) {
+  wos_slot_t slot = wos_owner_current();
   for (int i = 0; i < MAX_SHARED_REGIONS; i++) {
-    if (s_regions[i].in_use && s_regions[i].addr == addr) {
+    if (s_regions[i].in_use && s_regions[i].owner_slot == slot && s_regions[i].addr == addr) {
       return &s_regions[i];
     }
   }
@@ -55,7 +60,8 @@ static int32_t wasm_share_memory(wasm_exec_env_t exec_env, uint64_t addr, uint32
   } else {
     for (int i = 0; i < MAX_SHARED_REGIONS; i++) {
       if (!s_regions[i].in_use) {
-        s_regions[i] = (shared_region_t){.owner = inst, .addr = addr, .len = size, .in_use = true};
+        s_regions[i] = (shared_region_t){
+            .owner = inst, .owner_slot = wos_owner_current(), .addr = addr, .len = size, .in_use = true};
         result = WOS_OK;
         break;
       }
@@ -120,12 +126,16 @@ static int32_t wasm_remove_memory_sharing(wasm_exec_env_t exec_env, uint64_t add
   return result;
 }
 
-void wos_shared_memory_reset(void) {
+void wos_shared_memory_reset(wos_slot_t owner) {
   if (!s_lock) {
     return;
   }
   xSemaphoreTake(s_lock, portMAX_DELAY);
-  memset(s_regions, 0, sizeof(s_regions));
+  for (int i = 0; i < MAX_SHARED_REGIONS; i++) {
+    if (s_regions[i].in_use && s_regions[i].owner_slot == owner) {
+      s_regions[i].in_use = false;
+    }
+  }
   xSemaphoreGive(s_lock);
 }
 

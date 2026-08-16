@@ -7,6 +7,7 @@
     "test:hw": "jest --runInBand hardware.test.js",
     "test:wifi": "jest --runInBand wifi.test.js",
     "test:priority": "jest --runInBand priority.test.js",
+    "test:supervisor": "jest --runInBand supervisor.test.js",
     "test:touch": "jest --runInBand touch-button.test.js",
     "test:touch:p4": "jest --runInBand touch-lvgl-p4.test.js"
   },

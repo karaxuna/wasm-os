@@ -88,7 +88,7 @@ The hardware suites live in `wasm-os-tests/` (see also `test:wifi`, `test:touch`
 ## How It Works
 
 1. Firmware boots, mounts LittleFS, and loads config from `/littlefs/.env` into the app's environment. WiFi is app-initiated: the WASM app reads `WIFI_SSID`/`WIFI_PASS` via `getenv` and connects through the `wifi` binding
-2. `/littlefs/main.wasm` runs in WAMR on a dedicated task
+2. `/littlefs/main.wasm` runs in WAMR on a dedicated task; it may start one child app through the `app` binding (the supervisor pattern) and always outranks it
 3. A serial command handler listens for framed commands from the CLI (magic `WOS!`)
 4. When a new `main.wasm` is pushed, the running app is stopped cleanly (guest execution is terminated, leaked resources are reclaimed), the file is written, and the new module starts
 
@@ -97,6 +97,7 @@ The hardware suites live in `wasm-os-tests/` (see also `test:wifi`, `test:touch`
 WASM modules access hardware through the modules documented in `wasm-os-core/main/bindings/*.wit`:
 
 - GPIO (digital I/O)
+- App management (the main app supervises a second app slot: start/stop/status)
 - WiFi (station mode: connect, state, IP)
 - SPI master
 - I2S (audio)

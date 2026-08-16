@@ -69,7 +69,7 @@ static void transfer_reset(void) {
   memset(&s_transfer, 0, sizeof(s_transfer));
 
   if (resume_app) {
-    app_runtime_start();
+    app_runtime_start(WOS_SLOT_MAIN, NULL);
   }
 }
 
@@ -162,9 +162,12 @@ static void handle_push_begin(const uint8_t* payload, uint32_t len) {
    * to a stopped device still runs the new app.
    */
   bool is_main_app = strcmp(s_transfer.path, MAIN_WASM_PATH) == 0;
-  bool was_running = app_runtime_is_running();
+  bool was_running = app_runtime_is_running(WOS_SLOT_MAIN);
+  /* Child first: a busy guest in either slot starves this task. The main
+   * app is responsible for re-launching its child after the push. */
+  app_runtime_stop(WOS_SLOT_CHILD, 0);
   if (was_running) {
-    app_runtime_stop();
+    app_runtime_stop(WOS_SLOT_MAIN, 0);
   }
   s_transfer.resume_app = resume_app || was_running || is_main_app;
 
@@ -266,9 +269,10 @@ static void handle_delete(const uint8_t* payload, uint32_t len) {
 
 static void handle_restart(void) {
   ESP_LOGI(TAG, "Restart requested");
-  app_runtime_stop();
+  app_runtime_stop(WOS_SLOT_CHILD, 0);
+  app_runtime_stop(WOS_SLOT_MAIN, 0);
   send_response(SERIAL_RSP_ACK, NULL);
-  app_runtime_start();
+  app_runtime_start(WOS_SLOT_MAIN, NULL);
 }
 
 /* Read exactly `len` bytes from the console, giving up after `timeout_ms`. */

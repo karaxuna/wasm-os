@@ -12,6 +12,7 @@ typedef struct {
 } registrar_t;
 
 static const registrar_t k_registrars[] = {
+    {"app", wos_register_app},
     {"callback", wos_register_callback},
     {"env", wos_register_env},
     {"esp_lcd", wos_register_esp_lcd},
@@ -32,6 +33,7 @@ static const registrar_t k_registrars[] = {
 };
 
 bool wos_register_all_bindings(void) {
+  wos_owner_init();
   wos_handles_init();
 
   for (size_t i = 0; i < sizeof(k_registrars) / sizeof(k_registrars[0]); i++) {
@@ -43,17 +45,17 @@ bool wos_register_all_bindings(void) {
   return true;
 }
 
-void wos_bindings_reset(void) {
+void wos_bindings_reset_slot(wos_slot_t slot) {
   /* Tasks first: stragglers may still be using handles or shared memory. */
-  wos_tasks_reset();
-  wos_handles_destroy_all();
+  wos_tasks_reset(slot);
+  wos_handles_destroy_owned(slot);
   /* After the handle table: leaked I2C devices must be removed before their
    * bus can be deleted. */
-  wos_i2c_master_reset();
-  wos_callbacks_reset();
-  wos_shared_memory_reset();
+  wos_i2c_master_reset(slot);
+  wos_callbacks_reset(slot);
+  wos_shared_memory_reset(slot);
 }
 
-int wos_bindings_active_tasks(void) {
-  return wos_tasks_active();
+int wos_bindings_active_tasks(wos_slot_t slot) {
+  return wos_tasks_active(slot);
 }

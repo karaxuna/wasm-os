@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 
+#include "owner.h"
+
 /**
  * Internal registry of binding modules. Each module implements its
  * wos_register_* function (registering NativeSymbols with WAMR) and, where it
@@ -11,6 +13,7 @@
  * with the table in bindings.c.
  */
 
+bool wos_register_app(void);
 bool wos_register_callback(void);
 bool wos_register_env(void);
 bool wos_register_esp_lcd(void);
@@ -29,13 +32,13 @@ bool wos_register_wasi(void);
 bool wos_register_websocket(void);
 bool wos_register_wifi(void);
 
-/* Per-app state resets, called from wos_bindings_reset() at app teardown. */
-void wos_callbacks_reset(void);
-void wos_i2c_master_reset(void);
-void wos_shared_memory_reset(void);
+/* Per-slot state resets, called from wos_bindings_reset_slot() at teardown. */
+void wos_callbacks_reset(wos_slot_t owner);
+void wos_i2c_master_reset(wos_slot_t owner);
+void wos_shared_memory_reset(wos_slot_t owner);
 
-/* Spawned guest tasks still running; teardown waits for this to reach 0. */
-int wos_tasks_active(void);
+/* The slot's spawned guest tasks still running; teardown waits for 0. */
+int wos_tasks_active(wos_slot_t owner);
 
-/* Force-kill any guest task that refused to exit. Last resort at teardown. */
-void wos_tasks_reset(void);
+/* Force-kill the slot's guest tasks that refused to exit. Last resort. */
+void wos_tasks_reset(wos_slot_t owner);

@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "modules.h"
+#include "owner.h"
 
 /*
  * Cross-module callback registry: an app registers a function by its table
@@ -23,6 +24,7 @@ static const char* TAG = "wasm_callback";
 
 typedef struct {
   uint32_t table_idx;
+  wos_slot_t owner;
   bool in_use;
 } callback_entry_t;
 
@@ -31,11 +33,13 @@ static SemaphoreHandle_t s_lock;
 
 static uint32_t wasm_callback_register(wasm_exec_env_t exec_env, uint32_t table_idx) {
   uint32_t handle = CALLBACK_INVALID;
+  wos_slot_t owner = wos_owner_current();
 
   xSemaphoreTake(s_lock, portMAX_DELAY);
   for (uint32_t i = 0; i < MAX_CALLBACKS; i++) {
     if (!s_callbacks[i].in_use) {
       s_callbacks[i].table_idx = table_idx;
+      s_callbacks[i].owner = owner;
       s_callbacks[i].in_use = true;
       handle = i;
       break;
@@ -60,8 +64,10 @@ static uint32_t wasm_callback_invoke(wasm_exec_env_t exec_env, uint32_t handle, 
     return CALLBACK_INVALID;
   }
 
+  /* A table index only means something inside the registering module's own
+   * table, so invocation is restricted to the owning slot. */
   xSemaphoreTake(s_lock, portMAX_DELAY);
-  bool valid = handle < MAX_CALLBACKS && s_callbacks[handle].in_use;
+  bool valid = handle < MAX_CALLBACKS && s_callbacks[handle].in_use && s_callbacks[handle].owner == wos_owner_current();
   uint32_t table_idx = valid ? s_callbacks[handle].table_idx : 0;
   xSemaphoreGive(s_lock);
 
@@ -90,18 +96,22 @@ static uint32_t wasm_callback_invoke(wasm_exec_env_t exec_env, uint32_t handle, 
 
 static void wasm_callback_unregister(wasm_exec_env_t exec_env, uint32_t handle) {
   xSemaphoreTake(s_lock, portMAX_DELAY);
-  if (handle < MAX_CALLBACKS) {
+  if (handle < MAX_CALLBACKS && s_callbacks[handle].owner == wos_owner_current()) {
     s_callbacks[handle].in_use = false;
   }
   xSemaphoreGive(s_lock);
 }
 
-void wos_callbacks_reset(void) {
+void wos_callbacks_reset(wos_slot_t owner) {
   if (!s_lock) {
     return;
   }
   xSemaphoreTake(s_lock, portMAX_DELAY);
-  memset(s_callbacks, 0, sizeof(s_callbacks));
+  for (uint32_t i = 0; i < MAX_CALLBACKS; i++) {
+    if (s_callbacks[i].in_use && s_callbacks[i].owner == owner) {
+      s_callbacks[i].in_use = false;
+    }
+  }
   xSemaphoreGive(s_lock);
 }
 

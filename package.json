@@ -12,6 +12,7 @@
     "test:hw": "npm run test:hw --workspace wasm-os-tests",
     "test:wifi": "npm run test:wifi --workspace wasm-os-tests",
     "test:priority": "npm run test:priority --workspace wasm-os-tests",
+    "test:supervisor": "npm run test:supervisor --workspace wasm-os-tests",
     "test:touch": "npm run test:touch --workspace wasm-os-tests",
     "test:touch:p4": "npm run test:touch:p4 --workspace wasm-os-tests"
   }

@@ -1,0 +1,29 @@
+/// Module "app" — child-app lifecycle management.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+///
+/// Callable only from the main app (/littlefs/main.wasm); every function
+/// returns -7 (unsupported) from the child. On managed devices main.wasm is
+/// a supervisor and these are its levers over the one child slot.
+interface app {
+  /// Start /littlefs/<name> in the child slot. Flat namespace: no '/'.
+  /// Negated ESP_ERR_INVALID_STATE while the child is not stopped;
+  /// negated ESP_ERR_NOT_FOUND when the file does not exist.
+  app-start: func(name: string) -> s32;
+
+  /// Request a stop and wait up to timeout-ms (0 = default 10 s, max
+  /// 30000). Negated ESP_ERR_TIMEOUT when the child had to be
+  /// force-reclaimed (its WAMR objects leak; logged).
+  app-stop: func(timeout-ms: s32) -> s32;
+
+  /// Child state: 0 stopped, 1 starting, 2 running, 3 stopping, 4 crashed
+  /// (entry trapped; reclaim with app-stop before restarting).
+  app-status: func() -> s32;
+
+  /// Child's last trap/stop message, snprintf-style: returns the length,
+  /// copies message + NUL into buf when cap is large enough. 0 when none.
+  app-last-error: func(buf: u32, cap: u32) -> s32;
+
+  /// Why the whole device last reset: 0 normal, 1 panic, 2 watchdog,
+  /// 3 brownout, 4 other. Feeds the supervisor's crash-recovery policy.
+  app-reset-reason: func() -> s32;
+}

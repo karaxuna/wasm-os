@@ -16,6 +16,7 @@
  */
 
 static i2c_master_bus_handle_t s_buses[I2C_NUM_MAX];
+static wos_slot_t s_bus_owner[I2C_NUM_MAX];
 
 static void device_destroy(void* ptr) {
   i2c_master_bus_rm_device((i2c_master_dev_handle_t)ptr);
@@ -101,6 +102,7 @@ static int32_t wasm_i2c_new_master_bus(wasm_exec_env_t exec_env, uint32_t config
     return wos_err(err);
   }
   s_buses[port] = bus;
+  s_bus_owner[port] = wos_owner_current();
   return WOS_OK;
 }
 
@@ -230,9 +232,9 @@ static int32_t wasm_i2c_master_transmit_receive(wasm_exec_env_t exec_env, uint32
   return wos_err(i2c_master_transmit_receive(device, tx, tx_len, rx, rx_len, timeout_ms));
 }
 
-void wos_i2c_master_reset(void) {
+void wos_i2c_master_reset(wos_slot_t owner) {
   for (int port = 0; port < I2C_NUM_MAX; port++) {
-    if (s_buses[port]) {
+    if (s_buses[port] && s_bus_owner[port] == owner) {
       i2c_del_master_bus(s_buses[port]);
       s_buses[port] = NULL;
     }

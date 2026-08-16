@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "modules.h"
+#include "owner.h"
 #include "priorities.h"
 
 /*
@@ -30,6 +31,7 @@ typedef struct {
   TaskHandle_t task;
   wasm_exec_env_t spawned_env;
   uint32_t table_idx;
+  wos_slot_t owner;
   bool in_use;
 } task_slot_t;
 
@@ -38,6 +40,7 @@ static SemaphoreHandle_t s_lock;
 
 static void task_trampoline(void* arg) {
   task_slot_t* slot = (task_slot_t*)arg;
+  wos_owner_bind(xTaskGetCurrentTaskHandle(), slot->owner);
 
   uint32_t argv[1] = {0};
   if (!wasm_runtime_call_indirect(slot->spawned_env, slot->table_idx, 0, argv)) {
@@ -51,6 +54,7 @@ static void task_trampoline(void* arg) {
   slot->in_use = false;
   xSemaphoreGive(s_lock);
 
+  wos_owner_unbind(xTaskGetCurrentTaskHandle());
   vTaskDelete(NULL);
 }
 
@@ -65,10 +69,12 @@ static int32_t wasm_task_spawn(wasm_exec_env_t exec_env, uint32_t table_idx, cha
              MAX_TASK_STACK_BYTES);
     return WOS_ERR_INVALID_ARG;
   }
-  /* Capped below the serial handler: a guest that outranked it could spin and
-   * make the device unreachable over serial until it was reflashed. */
-  if (priority < 0 || priority > WOS_PRIO_GUEST_MAX) {
-    ESP_LOGE(TAG, "Task priority %d out of range [0, %d]", (int)priority, WOS_PRIO_GUEST_MAX);
+  /* Capped at the spawning app's own priority: a guest may never outrank its
+   * manager or the serial handler. */
+  wos_slot_t owner = wos_owner_current();
+  int32_t guest_max = owner == WOS_SLOT_CHILD ? WOS_PRIO_GUEST_MAX_CHILD : WOS_PRIO_GUEST_MAX_MAIN;
+  if (priority < 0 || priority > guest_max) {
+    ESP_LOGE(TAG, "Task priority %d out of range [0, %d]", (int)priority, (int)guest_max);
     return WOS_ERR_INVALID_ARG;
   }
   if (core < -1 || core >= (int32_t)portNUM_PROCESSORS) {
@@ -92,6 +98,7 @@ static int32_t wasm_task_spawn(wasm_exec_env_t exec_env, uint32_t table_idx, cha
   }
 
   slot->table_idx = table_idx;
+  slot->owner = owner;
   slot->spawned_env = wasm_runtime_spawn_exec_env(exec_env);
   if (!slot->spawned_env) {
     ESP_LOGE(TAG, "Failed to spawn exec env (thread limit reached?)");
@@ -111,14 +118,14 @@ static int32_t wasm_task_spawn(wasm_exec_env_t exec_env, uint32_t table_idx, cha
   return WOS_OK;
 }
 
-int wos_tasks_active(void) {
+int wos_tasks_active(wos_slot_t owner) {
   if (!s_lock) {
     return 0;
   }
   int active = 0;
   xSemaphoreTake(s_lock, portMAX_DELAY);
   for (int i = 0; i < MAX_TASKS; i++) {
-    if (s_tasks[i].in_use) {
+    if (s_tasks[i].in_use && s_tasks[i].owner == owner) {
       active++;
     }
   }
@@ -126,15 +133,16 @@ int wos_tasks_active(void) {
   return active;
 }
 
-void wos_tasks_reset(void) {
+void wos_tasks_reset(wos_slot_t owner) {
   if (!s_lock) {
     return;
   }
   xSemaphoreTake(s_lock, portMAX_DELAY);
   for (int i = 0; i < MAX_TASKS; i++) {
-    if (s_tasks[i].in_use) {
+    if (s_tasks[i].in_use && s_tasks[i].owner == owner) {
       ESP_LOGE(TAG, "Force-killing spawned task that did not exit");
       vTaskDelete(s_tasks[i].task);
+      wos_owner_unbind(s_tasks[i].task);
       wasm_runtime_destroy_spawned_exec_env(s_tasks[i].spawned_env);
       s_tasks[i].in_use = false;
     }

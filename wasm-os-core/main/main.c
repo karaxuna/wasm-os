@@ -1,5 +1,6 @@
 #include <locale.h>
 
+#include "esp_attr.h"
 #include "esp_event.h"
 #include "esp_heap_caps.h"
 #include "esp_littlefs.h"
@@ -15,6 +16,15 @@
 #include "serial_cmd.h"
 
 #define MEMORY_REPORT_INTERVAL_MS 10000
+
+/* Consecutive-panic budget: below the limit the app still auto-starts (its
+ * crash policy is the app's own business, exposed via app_reset_reason);
+ * at the limit, hold off and wait for serial recovery. */
+#define PANIC_MAGIC 0x574F5321u /* "WOS!" */
+#define PANIC_LIMIT 3
+
+RTC_NOINIT_ATTR static uint32_t s_panic_magic;
+RTC_NOINIT_ATTR static uint32_t s_panic_count;
 
 static const char* TAG = "main";
 
@@ -49,16 +59,30 @@ void app_main(void) {
 
   /* WiFi is app-initiated: the guest connects through the "wifi" binding. */
   if (esp_reset_reason() == ESP_RST_PANIC) {
-    ESP_LOGW(TAG, "Previous run panicked; not auto-starting the app to avoid a crash loop");
+    if (s_panic_magic != PANIC_MAGIC) {
+      s_panic_magic = PANIC_MAGIC;
+      s_panic_count = 0;
+    }
+    s_panic_count++;
+    if (s_panic_count >= PANIC_LIMIT) {
+      ESP_LOGW(TAG, "Panicked %u times in a row; not auto-starting the app to break the crash loop",
+               (unsigned)s_panic_count);
+    } else {
+      ESP_LOGW(TAG, "Previous run panicked (%u/%u); starting the app anyway", (unsigned)s_panic_count, PANIC_LIMIT);
+      app_runtime_start(WOS_SLOT_MAIN, NULL);
+    }
   } else {
-    app_runtime_start();
+    s_panic_magic = PANIC_MAGIC;
+    s_panic_count = 0;
+    app_runtime_start(WOS_SLOT_MAIN, NULL);
   }
 
   while (true) {
     size_t total = heap_caps_get_total_size(MALLOC_CAP_8BIT);
     size_t free_bytes = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    ESP_LOGI(TAG, "Heap: %u/%u bytes free, app %s", (unsigned)free_bytes, (unsigned)total,
-             app_runtime_is_running() ? "running" : "stopped");
+    ESP_LOGI(TAG, "Heap: %u/%u bytes free, main %s, child %s", (unsigned)free_bytes, (unsigned)total,
+             app_runtime_is_running(WOS_SLOT_MAIN) ? "running" : "stopped",
+             app_runtime_is_running(WOS_SLOT_CHILD) ? "running" : "stopped");
     vTaskDelay(pdMS_TO_TICKS(MEMORY_REPORT_INTERVAL_MS));
   }
 }

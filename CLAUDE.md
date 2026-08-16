@@ -94,6 +94,7 @@ All runnable from the repo root; `npm test` never touches hardware.
 npm test                 # CLI protocol unit tests (wasm-os-cli/tests, no hardware)
 npm run test:hw          # hardware integration (requires connected ESP32)
 npm run test:wifi        # hardware: app connects to WiFi via the wifi binding and makes an HTTP request (needs wasm-os-tests/.env credentials)
+npm run test:supervisor  # hardware: two-slot runtime — a supervisor app starts/stops/reclaims child apps
 npm run test:touch       # interactive: human presses an on-screen button (HW-458/CYD board)
 npm run test:touch:p4    # interactive: same, with LVGL on the JC8012P4A1C (ESP32-P4, 10.1" MIPI-DSI)
 ```
@@ -110,11 +111,12 @@ The P4 touch test (`test:touch:p4`, `WASM_OS_PROFILE=esp32p4-16mb-psram`) target
 
 Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-cli/src/protocol.js` — keep the two in sync (same repo, same PR).
 
-PUSH_BEGIN stops the running app, because a busy app starves the serial task and stalls the transfer. It restarts once the transfer ends — on success, failure, or when a later PUSH_BEGIN supersedes an abandoned one — so a push never leaves the device app-less. Pushing any file therefore restarts the app; `main.wasm` additionally starts even if nothing was running.
+PUSH_BEGIN stops both app slots (child first, then main), because a busy guest in either slot starves the serial task and stalls the transfer. The main app restarts once the transfer ends — on success, failure, or when a later PUSH_BEGIN supersedes an abandoned one — so a push never leaves the device app-less; re-launching the child is the main app's job. Pushing any file therefore restarts the app; `main.wasm` additionally starts even if nothing was running.
 
 ## Architecture Conventions
 
-- **App lifecycle** (`wasm-os-core/main/app_runtime.c`): the app task is the sole owner of all WAMR objects. Never free runtime state from another task; request a stop via `app_runtime_stop()`, which terminates guest execution and waits for the app task's own teardown.
+- **App lifecycle** (`wasm-os-core/main/app_runtime.c`): two slots — `WOS_SLOT_MAIN` boots `/littlefs/main.wasm`; `WOS_SLOT_CHILD` is started only through the `app` binding, by the main app (the supervisor pattern). The WAMR runtime is initialized once at boot and never destroyed. Per slot, the slot's task is the sole owner of that slot's WAMR objects: never free runtime state from another task; request a stop via `app_runtime_stop(slot, timeout)`, which terminates guest execution and waits for the slot's own teardown.
+- **Resource ownership** (`wasm-os-core/main/bindings/owner.c`): every guest resource is stamped with the creating slot, derived from the calling task. Teardown reclaims only the dying slot's handles/tasks/callbacks/regions. The `app` management binding is callable from the main slot only; the main app outranks the child (`priorities.h`), so a spinning child can always be stopped.
 - **Handles** (`wasm-os-core/main/bindings/handle.h`): guests never see native pointers. Every host resource is registered in the typed, generation-checked handle table and validated with `wos_handle_deref` on each use. Leaked resources are reclaimed at app teardown.
 - **Guest memory** (`wasm-os-core/main/bindings/common.h`): every guest buffer must go through `wos_guest_ptr(exec_env, addr, len)` — it bounds-checks the whole range. Never call `wasm_runtime_addr_app_to_native` directly in bindings.
 - **Errors**: bindings return 0 on success, negative on failure. `WOS_ERR_*` codes (-1..-7) for binding-layer failures; ESP-IDF errors pass through negated. Constructors return a handle or 0. Documented per module in `wasm-os-core/main/bindings/*.wit` and `wasm-os-core/main/bindings/README.md`.
@@ -128,6 +130,7 @@ PUSH_BEGIN stops the running app, because a busy app starves the serial task and
 - `wasm-os-core/main/app_runtime.c` - WASM runtime init and race-free app start/stop
 - `wasm-os-core/main/device_config.c` - NVS-backed config (WiFi creds, env vars, log level)
 - `wasm-os-core/main/serial_cmd.c` - USB serial protocol handler
+- `wasm-os-core/main/bindings/app.c` - Child-app lifecycle binding (start/stop/status, main-slot only)
 - `wasm-os-core/main/bindings/` - Hardware bindings (GPIO, SPI, I2S, LCD, HTTP, WebSocket, sockets, fs, ...)
 - `wasm-os-cli/src/protocol.js` - CLI-side protocol implementation
 - `wasm-os-cli/src/device.js` - Port resolution and open/run/close scaffolding for commands
