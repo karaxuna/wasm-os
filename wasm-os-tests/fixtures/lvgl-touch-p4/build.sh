@@ -5,7 +5,7 @@
 set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="${FIXTURE_DIR}/../../../scripts"
+SCRIPTS_DIR="${FIXTURE_DIR}/../../scripts"
 
 WASI_SDK="$("${SCRIPTS_DIR}/fetch-wasi-sdk.sh")"
 LVGL_DIR="$("${SCRIPTS_DIR}/fetch-lvgl.sh")"

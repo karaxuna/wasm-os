@@ -3,7 +3,7 @@
  * AssemblyScript app that connects to WiFi with the stored /littlefs/.env
  * credentials and makes an HTTP request to the web.
  *
- * Needs a connected board and real credentials in cli/tests/.env (see
+ * Needs a connected board and real credentials in wasm-os-tests/.env (see
  * .env.example). Run:
  *
  *   npm run test:wifi
@@ -15,22 +15,12 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const {
-  openPort,
-  closePort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  autoDetectPort,
-} = require("../src/serial");
-const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
+const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
+const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker, hardReset } = require("./lib");
 
-const FIRMWARE_DIR = path.resolve(__dirname, "../..");
-const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
 const OUTPUT_WASM = path.resolve(FIXTURES_DIR, "wifi-http.wasm");
 const ENV_FILE = path.resolve(__dirname, ".env");
 
-const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
 const PROFILE = process.env.WASM_OS_PROFILE || "esp32s3-16mb-psram-oct";
 const SKIP_FLASH = process.env.WASM_OS_SKIP_FLASH === "1";
 
@@ -39,56 +29,6 @@ const FLASH_TIMEOUT = 300_000;
 const RUN_TIMEOUT = 90_000;
 
 let portPath;
-
-/** Resolve when `marker` shows up in the serial stream; reject on timeout. */
-function waitForMarker(port, marker, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let buf = "";
-    const timer = setTimeout(() => {
-      port.off("data", onData);
-      reject(new Error(`Timed out after ${timeoutMs / 1000}s waiting for "${marker}". Device output:\n${buf}`));
-    }, timeoutMs);
-
-    const onData = (data) => {
-      buf += data.toString();
-      if (buf.includes(marker)) {
-        clearTimeout(timer);
-        port.off("data", onData);
-        resolve(buf);
-      }
-    };
-
-    port.on("data", onData);
-  });
-}
-
-/** Stream a file to /littlefs/<name> over the serial protocol. */
-async function pushFile(port, data, name) {
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, name), {
-    timeout: PUSH_BEGIN_TIMEOUT,
-  });
-  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    await sendAndWaitForResponse(port, buildPushDataFrame(data.subarray(i, Math.min(i + CHUNK_SIZE, data.length))));
-  }
-  await sendAndWaitForResponse(port, buildPushEndFrame());
-}
-
-/**
- * Pulse EN via RTS while leaving IO0 (DTR) high, so the chip reboots into the
- * application rather than the ROM downloader. The stored credentials are only
- * read at boot, so pushing .env is pointless without this.
- */
-function hardReset(port) {
-  return new Promise((resolve) => {
-    port.set({ dtr: false, rts: true }, () => {
-      setTimeout(() => {
-        port.set({ dtr: false, rts: false }, () => {
-          return resolve();
-        });
-      }, 150);
-    });
-  });
-}
 
 beforeAll(async () => {
   if (!fs.existsSync(ENV_FILE) || !fs.readFileSync(ENV_FILE, "utf8").includes("WIFI_SSID")) {
@@ -110,10 +50,7 @@ describe("wifi binding", () => {
         console.log("WASM_OS_SKIP_FLASH=1, skipping firmware flash");
         return;
       }
-      execSync(
-        `bash -c '. ${IDF_PATH}/export.sh 2>/dev/null && cd ${FIRMWARE_DIR} && idf.py @profiles/${PROFILE} -p ${portPath} build flash'`,
-        { stdio: "inherit", timeout: FLASH_TIMEOUT }
-      );
+      flashFirmware(portPath, PROFILE, FLASH_TIMEOUT);
     },
     FLASH_TIMEOUT
   );

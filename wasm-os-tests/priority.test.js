@@ -1,5 +1,6 @@
 /**
- * Regression test for the task-priority invariant in main/priorities.h.
+ * Regression test for the task-priority invariant in
+ * wasm-os-core/main/priorities.h.
  *
  * Pushes an app that spins forever without ever yielding, then requires the
  * device to still answer the CLI. The static assertions in priorities.h guard
@@ -23,41 +24,16 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const {
-  openPort,
-  closePort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  autoDetectPort,
-} = require("../src/serial");
-const {
-  buildPushBeginFrame,
-  buildPushDataFrame,
-  buildPushEndFrame,
-  buildDeleteFrame,
-  buildRestartFrame,
-  CHUNK_SIZE,
-} = require("../src/protocol");
+const { openPort, closePort, sendCommandWithRetry, autoDetectPort } = require("wasm-os/src/serial");
+const { buildDeleteFrame, buildRestartFrame } = require("wasm-os/src/protocol");
+const { FIXTURES_DIR, pushFile } = require("./lib");
 
-const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
 const HOSTILE_WASM = path.join(FIXTURES_DIR, "hostile.wasm");
 
 const BUILD_TIMEOUT = 60_000;
 const SPIN_SETTLE_MS = 3000;
 
 let portPath;
-
-async function pushFile(port, data, name) {
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, name), {
-    attempts: 1,
-    timeout: PUSH_BEGIN_TIMEOUT,
-  });
-  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    await sendAndWaitForResponse(port, buildPushDataFrame(data.subarray(i, Math.min(i + CHUNK_SIZE, data.length))));
-  }
-  await sendAndWaitForResponse(port, buildPushEndFrame());
-}
 
 beforeAll(async () => {
   portPath = await autoDetectPort();
@@ -91,13 +67,13 @@ describe("serial handler outranks a spinning guest", () => {
     try {
       // PUSH_END starts it, so the device is spinning from here on.
       console.log("Pushing the spinning app as main.wasm...");
-      await pushFile(port, wasm, "main.wasm");
+      await pushFile(port, wasm, "main.wasm", { attempts: 1 });
       await new Promise((r) => setTimeout(r, SPIN_SETTLE_MS));
 
       // The real assertions: every command below has to get through while
       // the guest is monopolising the CPU.
       console.log("PUSH while spinning...");
-      await pushFile(port, Buffer.from("reachable\n"), "priority-probe.txt");
+      await pushFile(port, Buffer.from("reachable\n"), "priority-probe.txt", { attempts: 1 });
 
       console.log("DELETE while spinning...");
       await sendCommandWithRetry(port, buildDeleteFrame("priority-probe.txt"));

@@ -2,35 +2,18 @@ const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const { SerialPort } = require("serialport");
-const {
-  openPort,
-  closePort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  autoDetectPort,
-} = require("../src/serial");
-const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
+const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
+const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker } = require("./lib");
 
-const FIRMWARE_DIR = path.resolve(__dirname, "../..");
-const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
-const OUTPUT_WASM = path.resolve(__dirname, "fixtures/output.wasm");
+const OUTPUT_WASM = path.resolve(FIXTURES_DIR, "output.wasm");
 
-const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
-const IDF_SHELL = `. ${IDF_PATH}/export.sh 2>/dev/null`;
 // Match the profile to the connected board, e.g.:
 //   WASM_OS_PROFILE=esp32-4mb npm run test:hw
 const PROFILE = process.env.WASM_OS_PROFILE || "esp32s3-16mb-psram-oct";
 
 const FLASH_TIMEOUT = 300_000;
 const PUSH_TIMEOUT = 30_000;
-
-function idf(cmd) {
-  return execSync(`bash -c '${IDF_SHELL} && cd ${FIRMWARE_DIR} && ${cmd}'`, {
-    stdio: "inherit",
-    timeout: FLASH_TIMEOUT,
-  });
-}
+const RUN_TIMEOUT = 15_000;
 
 let portPath;
 
@@ -49,7 +32,7 @@ describe("flash firmware", () => {
     "should build and flash wasm-os to the device",
     () => {
       console.log("Building and flashing firmware...");
-      idf(`idf.py @profiles/${PROFILE} -p ${portPath} build flash`);
+      flashFirmware(portPath, PROFILE, FLASH_TIMEOUT);
     },
     FLASH_TIMEOUT
   );
@@ -92,37 +75,10 @@ describe("push wasm", () => {
 
       let output;
       try {
-        // Opening the port resets auto-reset boards; retry until the device answers.
-        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"), {
-          timeout: PUSH_BEGIN_TIMEOUT,
-        });
-
-        for (let i = 0; i < wasm.length; i += CHUNK_SIZE) {
-          const chunk = wasm.subarray(i, Math.min(i + CHUNK_SIZE, wasm.length));
-          await sendAndWaitForResponse(port, buildPushDataFrame(chunk));
-        }
-
-        await sendAndWaitForResponse(port, buildPushEndFrame());
+        await pushFile(port, wasm, "main.wasm");
 
         // Listen for serial output to confirm the app ran
-        output = await new Promise((resolve) => {
-          let buf = "";
-          const timeout = setTimeout(() => {
-            port.off("data", onData);
-            resolve(buf);
-          }, 10_000);
-
-          const onData = (data) => {
-            buf += data.toString();
-            if (buf.includes("wasm-os test app done")) {
-              clearTimeout(timeout);
-              port.off("data", onData);
-              resolve(buf);
-            }
-          };
-
-          port.on("data", onData);
-        });
+        output = await waitForMarker(port, "wasm-os test app done", RUN_TIMEOUT);
       } finally {
         await closePort(port);
       }
@@ -131,7 +87,7 @@ describe("push wasm", () => {
       expect(output).toContain("wasm-os test app started");
       expect(output).toContain("wasm-os test app done");
     },
-    PUSH_TIMEOUT + 15_000
+    PUSH_TIMEOUT + RUN_TIMEOUT + 15_000
   );
 });
 

@@ -4,10 +4,13 @@ Run WebAssembly modules on ESP32 microcontrollers. Push `.wasm` binaries to the 
 
 ## Structure
 
-- `main/` - ESP32 firmware (C, ESP-IDF v5.5, WAMR runtime)
+An npm-workspaces monorepo:
+
+- `wasm-os-core/` - ESP32 firmware (C, ESP-IDF v5.5, WAMR runtime)
   - `main/bindings/` - the WASM-facing host API, one module per file (see `main/bindings/README.md` for the ABI conventions)
-- `cli/` - CLI tool (Node.js) for pushing WASM files to the device
-- `profiles/` - build profiles per ESP32 variant / flash size
+  - `profiles/` - build profiles per ESP32 variant / flash size
+- `wasm-os-cli/` - CLI tool (Node.js, npm package `wasm-os`) for pushing WASM files to the device
+- `wasm-os-tests/` - hardware/integration test suites spanning firmware and CLI
 
 ## Architecture
 
@@ -26,6 +29,7 @@ Requires [ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp3
 ```bash
 # Initialize ESP-IDF
 . $HOME/esp/esp-idf/export.sh
+cd wasm-os-core
 
 # Build with a profile (target + flash size + PSRAM in one)
 idf.py @profiles/esp32s3-16mb-psram-oct set-target esp32s3 build
@@ -44,8 +48,8 @@ ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-P4
 ### Install
 
 ```bash
-cd cli
-npm install
+npm install       # at the repo root (npm workspaces)
+cd wasm-os-cli
 npm link
 ```
 
@@ -72,11 +76,14 @@ wasm-os ports
 
 ## Tests
 
+From the repo root:
+
 ```bash
-cd cli
 npm test          # protocol unit tests, no hardware needed
 npm run test:hw   # full hardware integration suite (builds, flashes, pushes)
 ```
+
+The hardware suites live in `wasm-os-tests/` (see also `test:wifi`, `test:touch`, `test:touch:p4`).
 
 ## How It Works
 
@@ -87,7 +94,7 @@ npm run test:hw   # full hardware integration suite (builds, flashes, pushes)
 
 ## Hardware Bindings
 
-WASM modules access hardware through the modules documented in `main/bindings/*.wit`:
+WASM modules access hardware through the modules documented in `wasm-os-core/main/bindings/*.wit`:
 
 - GPIO (digital I/O)
 - WiFi (station mode: connect, state, IP)

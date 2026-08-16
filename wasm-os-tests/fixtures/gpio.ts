@@ -1,5 +1,5 @@
 // GPIO bindings to wasm-os host functions.
-// All calls return 0 on success, negative on error (see main/bindings/README.md).
+// All calls return 0 on success, negative on error (see wasm-os-core/main/bindings/README.md).
 
 // @ts-ignore
 @external("gpio", "gpio_set_level")

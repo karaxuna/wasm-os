@@ -1,5 +1,5 @@
 CompileFlags:
-    CompilationDatabase: "./build/esp32s3-16mb-psram-oct"
+    CompilationDatabase: "./wasm-os-core/build/esp32s3-16mb-psram-oct"
     Remove: [-f*, -m*]
     Add:
         - "-Wno-format"

@@ -1,6 +1,6 @@
 // HTTP client bindings to wasm-os host functions.
 // Constructors return a handle (0 = failure); other calls return 0 on
-// success, negative on error (see main/bindings/README.md).
+// success, negative on error (see wasm-os-core/main/bindings/README.md).
 
 // @ts-ignore
 @external("http_client", "http_client_config_create")

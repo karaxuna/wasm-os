@@ -15,21 +15,12 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const {
-  openPort,
-  closePort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  autoDetectPort,
-} = require("../src/serial");
-const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
+const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
+const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker } = require("./lib");
 
-const FIRMWARE_DIR = path.resolve(__dirname, "../..");
-const FIXTURE_DIR = path.resolve(__dirname, "fixtures/touch-button");
+const FIXTURE_DIR = path.join(FIXTURES_DIR, "touch-button");
 const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
 
-const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
 const PROFILE = process.env.WASM_OS_PROFILE || "esp32-4mb";
 const SKIP_FLASH = process.env.WASM_OS_SKIP_FLASH === "1";
 
@@ -39,28 +30,6 @@ const READY_TIMEOUT = 60_000;
 const HUMAN_TIMEOUT = 60_000;
 
 let portPath;
-
-/** Resolve when `marker` shows up in the serial stream; reject on timeout. */
-function waitForMarker(port, marker, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let buf = "";
-    const timer = setTimeout(() => {
-      port.off("data", onData);
-      reject(new Error(`Timed out after ${timeoutMs / 1000}s waiting for "${marker}". Device output:\n${buf}`));
-    }, timeoutMs);
-
-    const onData = (data) => {
-      buf += data.toString();
-      if (buf.includes(marker)) {
-        clearTimeout(timer);
-        port.off("data", onData);
-        resolve(buf);
-      }
-    };
-
-    port.on("data", onData);
-  });
-}
 
 beforeAll(async () => {
   portPath = await autoDetectPort();
@@ -78,10 +47,7 @@ describe("touch button (human in the loop)", () => {
         console.log("WASM_OS_SKIP_FLASH=1, skipping firmware flash");
         return;
       }
-      execSync(
-        `bash -c '. ${IDF_PATH}/export.sh 2>/dev/null && cd ${FIRMWARE_DIR} && idf.py @profiles/${PROFILE} -p ${portPath} build flash'`,
-        { stdio: "inherit", timeout: FLASH_TIMEOUT }
-      );
+      flashFirmware(portPath, PROFILE, FLASH_TIMEOUT);
     },
     FLASH_TIMEOUT
   );
@@ -104,16 +70,7 @@ describe("touch button (human in the loop)", () => {
       const port = await openPort(portPath);
       try {
         console.log("Pushing app...");
-        await sendCommandWithRetry(port, buildPushBeginFrame(wasm.length, "main.wasm"), {
-          timeout: PUSH_BEGIN_TIMEOUT,
-        });
-        for (let i = 0; i < wasm.length; i += CHUNK_SIZE) {
-          await sendAndWaitForResponse(
-            port,
-            buildPushDataFrame(wasm.subarray(i, Math.min(i + CHUNK_SIZE, wasm.length)))
-          );
-        }
-        await sendAndWaitForResponse(port, buildPushEndFrame());
+        await pushFile(port, wasm, "main.wasm");
 
         console.log("Waiting for the app to draw its UI...");
         await waitForMarker(port, "UI_READY", READY_TIMEOUT);

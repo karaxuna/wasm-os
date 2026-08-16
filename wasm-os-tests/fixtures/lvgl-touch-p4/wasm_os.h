@@ -1,6 +1,6 @@
 /**
  * wasm-os host imports used by this app. Signatures follow the ABI
- * documented in the main/bindings .wit files: handles are opaque u32
+ * documented in the wasm-os-core/main/bindings .wit files: handles are opaque u32
  * (0 = invalid), status returns are 0 on success / negative on error.
  */
 #pragma once

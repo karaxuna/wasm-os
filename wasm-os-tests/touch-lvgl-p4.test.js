@@ -8,8 +8,8 @@
  *
  *   npm run test:touch:p4
  *
- * Device settings come from cli/tests/.env (see .env.example) — the app needs
- * WiFi to fetch its buttons over HTTP.
+ * Device settings come from wasm-os-tests/.env (see .env.example) — the app
+ * needs WiFi to fetch its buttons over HTTP.
  *
  * Env:
  *   WASM_OS_PROFILE     build profile (default esp32p4-16mb-psram)
@@ -18,22 +18,13 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const {
-  openPort,
-  closePort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  autoDetectPort,
-} = require("../src/serial");
-const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
+const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
+const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker, hardReset } = require("./lib");
 
-const FIRMWARE_DIR = path.resolve(__dirname, "../..");
-const FIXTURE_DIR = path.resolve(__dirname, "fixtures/lvgl-touch-p4");
+const FIXTURE_DIR = path.join(FIXTURES_DIR, "lvgl-touch-p4");
 const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
 const ENV_FILE = path.resolve(__dirname, ".env");
 
-const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
 const PROFILE = process.env.WASM_OS_PROFILE || "esp32p4-16mb-psram";
 const SKIP_FLASH = process.env.WASM_OS_SKIP_FLASH === "1";
 
@@ -44,56 +35,6 @@ const HUMAN_TIMEOUT = 60_000;
 const WIFI_TIMEOUT = 45_000; // the app waits up to 30s for the wifi binding to connect
 
 let portPath;
-
-/** Resolve when `marker` shows up in the serial stream; reject on timeout. */
-function waitForMarker(port, marker, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    let buf = "";
-    const timer = setTimeout(() => {
-      port.off("data", onData);
-      reject(new Error(`Timed out after ${timeoutMs / 1000}s waiting for "${marker}". Device output:\n${buf}`));
-    }, timeoutMs);
-
-    const onData = (data) => {
-      buf += data.toString();
-      if (buf.includes(marker)) {
-        clearTimeout(timer);
-        port.off("data", onData);
-        resolve(buf);
-      }
-    };
-
-    port.on("data", onData);
-  });
-}
-
-/** Stream a file to /littlefs/<name> over the serial protocol. */
-async function pushFile(port, data, name) {
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, name), {
-    timeout: PUSH_BEGIN_TIMEOUT,
-  });
-  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    await sendAndWaitForResponse(port, buildPushDataFrame(data.subarray(i, Math.min(i + CHUNK_SIZE, data.length))));
-  }
-  await sendAndWaitForResponse(port, buildPushEndFrame());
-}
-
-/**
- * Pulse EN via RTS while leaving IO0 (DTR) high, so the chip reboots into the
- * application rather than the ROM downloader. Device settings are only read at
- * boot, so pushing .env is pointless without this.
- */
-function hardReset(port) {
-  return new Promise((resolve) => {
-    port.set({ dtr: false, rts: true }, () => {
-      setTimeout(() => {
-        port.set({ dtr: false, rts: false }, () => {
-          return resolve();
-        });
-      }, 150);
-    });
-  });
-}
 
 beforeAll(async () => {
   portPath = await autoDetectPort();
@@ -111,10 +52,7 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
         console.log("WASM_OS_SKIP_FLASH=1, skipping firmware flash");
         return;
       }
-      execSync(
-        `bash -c '. ${IDF_PATH}/export.sh 2>/dev/null && cd ${FIRMWARE_DIR} && idf.py @profiles/${PROFILE} -p ${portPath} build flash'`,
-        { stdio: "inherit", timeout: FLASH_TIMEOUT }
-      );
+      flashFirmware(portPath, PROFILE, FLASH_TIMEOUT);
     },
     FLASH_TIMEOUT
   );

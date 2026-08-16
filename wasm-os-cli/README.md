@@ -5,8 +5,9 @@ Command-line tool for pushing WebAssembly modules to ESP32 devices running the w
 ## Install
 
 ```bash
-npm install
-npm link   # optional: makes the `wasm-os` command available globally
+npm install   # at the monorepo root (npm workspaces)
+cd wasm-os-cli
+npm link      # optional: makes the `wasm-os` command available globally
 ```
 
 Without `npm link`, replace `wasm-os` with `npx wasm-os` (or `node src/index.js`) below.
@@ -65,28 +66,19 @@ When `--port` is omitted, the CLI scans for common ESP32 USB-serial bridges (Esp
 ## Tests
 
 ```bash
-npm test           # protocol unit tests — no hardware needed
-npm run test:hw    # hardware integration — flashes and exercises a connected ESP32
-npm run test:touch # interactive — a human must press a button on the touchscreen (HW-458/CYD board)
+npm test   # protocol unit tests — no hardware needed
 ```
 
-Environment variables for the hardware suites:
-
-| Variable | Description |
-|---|---|
-| `WASM_OS_PROFILE` | Build profile matching the connected board (default `esp32s3-16mb-psram-oct` for `test:hw`, `esp32-4mb` for `test:touch`) |
-| `WASM_OS_SKIP_FLASH` | Set to `1` to skip the firmware build+flash step (`test:touch`) |
-| `IDF_PATH` | ESP-IDF location (defaults to the v5.5.4 install) |
-| `WASI_SDK_PATH` | Use an existing wasi-sdk instead of auto-downloading one |
+The hardware/integration suites (flashing a real board, touch tests) live in
+the sibling `wasm-os-tests/` package; see the repo root README.
 
 ## Layout
 
 - `src/index.js` — command definitions (commander)
-- `src/protocol.js` — binary frame protocol, shared with `main/serial_cmd.c` in the firmware (keep in sync)
+- `src/protocol.js` — binary frame protocol, shared with `wasm-os-core/main/serial_cmd.c` in the firmware (keep in sync)
 - `src/serial.js` — port handling, response parsing, retries
 - `src/device.js` — port resolution and open/run/close scaffolding used by commands
-- `tests/fixtures/` — WASM test apps (AssemblyScript blinky; plain-C touch-button app for the CYD)
-- `scripts/fetch-wasi-sdk.sh` — downloads the pinned C→WASM toolchain into `toolchain/` (gitignored) on first use
+- `tests/protocol.test.js` — unit tests for the frame protocol
 
 ## Protocol
 

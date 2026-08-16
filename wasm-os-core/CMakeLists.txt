@@ -2,8 +2,8 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-# Read version from package.json
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/package.json" PACKAGE_JSON)
+# Read version from the monorepo root package.json
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../package.json" PACKAGE_JSON)
 string(JSON FIRMWARE_VERSION GET ${PACKAGE_JSON} "version")
 message(STATUS "Firmware version: ${FIRMWARE_VERSION}")
 

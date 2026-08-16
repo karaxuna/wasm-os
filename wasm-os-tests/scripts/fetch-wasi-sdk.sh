@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download a pinned wasi-sdk release into cli/toolchain/wasi-sdk (gitignored).
+# Download a pinned wasi-sdk release into wasm-os-tests/toolchain/wasi-sdk (gitignored).
 # Skipped when WASI_SDK_PATH is set or the toolchain is already present.
 # Prints the toolchain path on success.
 set -euo pipefail
@@ -7,8 +7,8 @@ set -euo pipefail
 WASI_SDK_VERSION_MAJOR=25
 WASI_SDK_VERSION="${WASI_SDK_VERSION_MAJOR}.0"
 
-CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEST="${CLI_DIR}/toolchain/wasi-sdk"
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEST="${TESTS_DIR}/toolchain/wasi-sdk"
 
 if [ -n "${WASI_SDK_PATH:-}" ]; then
   echo "${WASI_SDK_PATH}"
@@ -35,10 +35,10 @@ ARCHIVE="wasi-sdk-${WASI_SDK_VERSION}-${ARCHIVE_ARCH}.tar.gz"
 URL="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION_MAJOR}/${ARCHIVE}"
 
 echo "Downloading wasi-sdk ${WASI_SDK_VERSION} (${ARCHIVE_ARCH})..." >&2
-mkdir -p "${CLI_DIR}/toolchain"
-curl -fLsS --retry 3 --retry-delay 2 -C - "${URL}" -o "${CLI_DIR}/toolchain/${ARCHIVE}"
-tar -xzf "${CLI_DIR}/toolchain/${ARCHIVE}" -C "${CLI_DIR}/toolchain"
-mv "${CLI_DIR}/toolchain/wasi-sdk-${WASI_SDK_VERSION}-${ARCHIVE_ARCH}" "${DEST}"
-rm "${CLI_DIR}/toolchain/${ARCHIVE}"
+mkdir -p "${TESTS_DIR}/toolchain"
+curl -fLsS --retry 3 --retry-delay 2 -C - "${URL}" -o "${TESTS_DIR}/toolchain/${ARCHIVE}"
+tar -xzf "${TESTS_DIR}/toolchain/${ARCHIVE}" -C "${TESTS_DIR}/toolchain"
+mv "${TESTS_DIR}/toolchain/wasi-sdk-${WASI_SDK_VERSION}-${ARCHIVE_ARCH}" "${DEST}"
+rm "${TESTS_DIR}/toolchain/${ARCHIVE}"
 
 echo "${DEST}"

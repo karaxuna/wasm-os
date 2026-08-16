@@ -8,15 +8,15 @@ managed_components/
 build/
 sdkconfig.old
 
-# Fetched by cli/scripts (pinned versions; see fetch-*.sh)
-cli/toolchain/
+# Fetched by wasm-os-tests/scripts (pinned versions; see fetch-*.sh)
+wasm-os-tests/toolchain/
 
-# Real device credentials; cli/tests/.env.example is the tracked template
-cli/tests/.env
+# Real device credentials; wasm-os-tests/.env.example is the tracked template
+wasm-os-tests/.env
 
 # Rebuilt by the touch tests; too big to commit (LVGL)
-cli/tests/fixtures/lvgl-touch-p4/app.wasm
-cli/tests/fixtures/touch-button/app.wasm
+wasm-os-tests/fixtures/lvgl-touch-p4/app.wasm
+wasm-os-tests/fixtures/touch-button/app.wasm
 
 # Compiled by the test suites from the .ts fixtures alongside them
-cli/tests/fixtures/*.wasm
+wasm-os-tests/fixtures/*.wasm
