@@ -2,6 +2,13 @@
   "name": "wasm-os-sdk",
   "version": "0.1.0",
   "description": "JS SDK for wasm-os devices: serial protocol, device client, and Node/Web Serial transports",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karaxuna/wasm-os.git",
+    "directory": "wasm-os-sdk"
+  },
+  "homepage": "https://github.com/karaxuna/wasm-os/tree/master/wasm-os-sdk#readme",
+  "bugs": "https://github.com/karaxuna/wasm-os/issues",
   "main": "src/index.js",
   "files": [
     "src"

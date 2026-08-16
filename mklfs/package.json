@@ -2,6 +2,13 @@
   "name": "mklfs",
   "version": "0.1.0",
   "description": "Build and read littlefs filesystem images in pure JavaScript - littlefs compiled to WebAssembly, no native binaries, runs in Node and the browser",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karaxuna/wasm-os.git",
+    "directory": "mklfs"
+  },
+  "homepage": "https://github.com/karaxuna/wasm-os/tree/master/mklfs#readme",
+  "bugs": "https://github.com/karaxuna/wasm-os/issues",
   "main": "src/index.js",
   "bin": {
     "mklfs": "./src/cli.js"

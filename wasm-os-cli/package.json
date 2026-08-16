@@ -2,6 +2,13 @@
   "name": "wasm-os",
   "version": "0.1.0",
   "description": "CLI for pushing WebAssembly modules to ESP32 devices running wasm-os",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karaxuna/wasm-os.git",
+    "directory": "wasm-os-cli"
+  },
+  "homepage": "https://github.com/karaxuna/wasm-os/tree/master/wasm-os-cli#readme",
+  "bugs": "https://github.com/karaxuna/wasm-os/issues",
   "bin": {
     "wasm-os": "./src/index.js"
   },
