@@ -1,6 +1,6 @@
 {
   "name": "@wasm-os/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI for pushing WebAssembly modules to ESP32 devices running wasm-os",
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
     "prepublishOnly": "node src/index.js --help > /dev/null"
   },
   "dependencies": {
-    "@wasm-os/sdk": "^0.1.0",
+    "@wasm-os/sdk": "^0.2.0",
     "serialport": "^12.0.0",
     "commander": "^13.0.0",
     "esptool-js": "^0.6.1",
