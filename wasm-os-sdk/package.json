@@ -4,10 +4,11 @@
   "description": "JS SDK for wasm-os devices: serial protocol, device client, and Node/Web Serial transports",
   "main": "src/index.js",
   "files": [
-    "src"
+    "src",
+    "assets"
   ],
   "scripts": {
-    "test": "jest tests/protocol.test.js"
+    "test": "jest tests"
   },
   "peerDependencies": {
     "serialport": "^12.0.0"

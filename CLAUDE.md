@@ -39,6 +39,7 @@ npx wasm-os monitor                # serial monitor
 npx wasm-os ports                  # list serial ports
 npx wasm-os info                   # detect chip type and flash size
 npx wasm-os flash ./firmware.bin   # flash firmware (no ESP-IDF needed)
+npx wasm-os flash merged.bin --app ./app.wasm --env ./.env  # provision: firmware + app + settings in one flash
 npx wasm-os push ./.env            # device settings (see below)
 ```
 
@@ -78,6 +79,15 @@ A merged image is contiguous from `0x0`, so `merge_bin` pads the gaps between
 partitions with `0xFF`. It ends below `littlefs`, so both the pushed `.wasm`
 app and the `.env` config survive a firmware flash. `--erase` wipes littlefs
 too, which does destroy them.
+
+`--app`/`--env` bundle a littlefs partition into the same flash: the SDK
+builds the filesystem image in-process (littlefs compiled to WASM in
+`wasm-os-sdk/mklfs/`, pinned to the firmware's lfs version and geometry —
+bump them together), locates the partition by parsing the partition table at
+`0x8000` inside the image, erases the partition region (stale metadata pairs
+from a previous filesystem could out-revision fresh ones), and writes only
+the non-erased block runs. The device boots with the app and settings
+already in place — no serial push needed.
 
 Three things about `esptool-js` are load-bearing (see `wasm-os-cli/src/webserial.js`):
 its published `lib/` uses extensionless imports Node's ESM resolver rejects, so

@@ -46,6 +46,12 @@ await transport.close();
   read once at boot)
 - Transports implement `{ write, subscribe, setSignals, close }`; anything
   matching that shape works with the client.
+- `buildLittlefsImage(files, partitionSize)` / `littlefsImageSegments(image, base)` —
+  build a ready-to-flash littlefs image in-process (littlefs compiled to WASM,
+  no external binaries; works in the browser) and split it into the non-erased
+  block runs worth writing
+- `parsePartitionTable(image)` / `findPartition(image, label)` — read the
+  ESP-IDF partition table out of a merged firmware image
 
 ## Tests
 

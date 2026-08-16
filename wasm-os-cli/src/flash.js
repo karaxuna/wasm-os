@@ -83,11 +83,12 @@ function hardReset(portPath) {
 }
 
 /**
- * Flash `image` at `address`. The merged image covers bootloader, partition
- * table and app0, all of which sit below the littlefs partition, so a normal
- * flash leaves the pushed .wasm app intact. `eraseAll` wipes it.
+ * Flash every `{ data, address }` segment in one session. The merged image
+ * covers bootloader, partition table and app0, all of which sit below the
+ * littlefs partition, so a normal flash leaves the pushed .wasm app intact.
+ * `eraseAll` wipes it.
  */
-async function flashImage(portPath, image, { address = 0, baud = FLASH_BAUD, eraseAll = false } = {}) {
+async function flashSegments(portPath, segments, { baud = FLASH_BAUD, eraseAll = false, eraseRegions = [] } = {}) {
   const { loader, transport, chip } = await connect(portPath, { baud });
 
   try {
@@ -99,8 +100,19 @@ async function flashImage(portPath, image, { address = 0, baud = FLASH_BAUD, era
       console.log("OK");
     }
 
+    /* Regions rewritten as sparse segments (littlefs) must be erased whole
+     * first: a stale metadata block left over from a previous filesystem can
+     * out-revision the freshly written half of a littlefs metadata pair. */
+    for (const region of eraseRegions) {
+      process.stdout.write(`Erasing 0x${region.size.toString(16)} bytes at 0x${region.offset.toString(16)}... `);
+      await loader.eraseRegion(region.offset, region.size);
+      console.log("OK");
+    }
+
     await loader.writeFlash({
-      fileArray: [{ data: new Uint8Array(image), address }],
+      fileArray: segments.map((s) => {
+        return { data: new Uint8Array(s.data), address: s.address };
+      }),
       flashSize: "keep",
       flashMode: "keep",
       flashFreq: "keep",
@@ -118,4 +130,4 @@ async function flashImage(portPath, image, { address = 0, baud = FLASH_BAUD, era
   }
 }
 
-module.exports = { connect, flashImage, hardReset, FLASH_BAUD };
+module.exports = { connect, flashSegments, hardReset, FLASH_BAUD };

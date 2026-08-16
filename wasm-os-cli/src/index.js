@@ -6,7 +6,9 @@ const { program } = require("commander");
 const { withDevice, resolvePort } = require("./device");
 const { openNodeSerialTransport, listPorts, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
 const { CHUNK_SIZE } = require("wasm-os-sdk/src/protocol");
-const { connect, flashImage, hardReset, FLASH_BAUD } = require("./flash");
+const { connect, flashSegments, hardReset, FLASH_BAUD } = require("./flash");
+const { buildLittlefsImage, littlefsImageSegments } = require("wasm-os-sdk/src/mklfs");
+const { findPartition } = require("wasm-os-sdk/src/partitions");
 
 function portOptions(command) {
   return command
@@ -132,6 +134,8 @@ program
   .option("-b, --baud <rate>", "Flash baud rate", String(FLASH_BAUD))
   .option("-a, --address <offset>", "Flash offset (hex or decimal)", "0")
   .option("--erase", "Erase the whole flash first (also destroys littlefs and the pushed app)")
+  .option("--app <file>", "Bundle a WASM app into the littlefs partition; it runs as main.wasm on boot")
+  .option("--env <file>", "Bundle device settings (.env) into the littlefs partition")
   .action(async (image, opts) => {
     try {
       const imagePath = path.resolve(image);
@@ -145,14 +149,50 @@ program
         throw new Error(`Invalid address: ${opts.address}`);
       }
 
+      const segments = [{ data, address }];
+
+      if (opts.app || opts.env) {
+        if (address !== 0) {
+          throw new Error("--app/--env need a full merged image flashed at 0x0 (the partition table lives at 0x8000)");
+        }
+        const partition = findPartition(data, "littlefs");
+        if (!partition) {
+          throw new Error("No littlefs partition found in the image's partition table");
+        }
+
+        const files = [];
+        if (opts.app) {
+          files.push({ name: "main.wasm", data: fs.readFileSync(path.resolve(opts.app)) });
+        }
+        if (opts.env) {
+          files.push({ name: ".env", data: fs.readFileSync(path.resolve(opts.env)) });
+        }
+
+        const fsImage = await buildLittlefsImage(files, partition.size);
+        const fsSegments = littlefsImageSegments(fsImage, partition.offset);
+        const written = fsSegments.reduce((n, s) => {
+          return n + s.data.length;
+        }, 0);
+        console.log(
+          `littlefs: ${files.map((f) => f.name).join(", ")} -> ${written} bytes in ${fsSegments.length} segment(s) at 0x${partition.offset.toString(16)}`
+        );
+        segments.push(...fsSegments);
+      }
+
       const portPath = await resolvePort(opts);
       console.log(`Port: ${portPath}`);
       console.log(`Image: ${imagePath} (${data.length} bytes) -> 0x${address.toString(16)}`);
 
-      await flashImage(portPath, data, {
-        address,
+      const eraseRegions = [];
+      if (segments.length > 1 && !opts.erase) {
+        const partition = findPartition(data, "littlefs");
+        eraseRegions.push({ offset: partition.offset, size: partition.size });
+      }
+
+      await flashSegments(portPath, segments, {
         baud: parseInt(opts.baud, 10) || FLASH_BAUD,
         eraseAll: Boolean(opts.erase),
+        eraseRegions,
       });
       console.log("Flash complete. Device restarted.");
     } catch (err) {
