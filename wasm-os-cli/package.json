@@ -1,0 +1,36 @@
+{
+  "name": "@wasm-os/cli",
+  "version": "0.3.0",
+  "description": "CLI for pushing WebAssembly modules to ESP32 devices running wasm-os",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karaxuna/wasm-os.git",
+    "directory": "wasm-os-cli"
+  },
+  "homepage": "https://github.com/karaxuna/wasm-os/tree/master/wasm-os-cli#readme",
+  "bugs": "https://github.com/karaxuna/wasm-os/issues",
+  "bin": {
+    "wasm-os": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "echo ok",
+    "prepublishOnly": "node src/index.js --help > /dev/null"
+  },
+  "dependencies": {
+    "@wasm-os/sdk": "^0.3.0",
+    "serialport": "^12.0.0",
+    "commander": "^13.0.0",
+    "esptool-js": "^0.6.1",
+    "@wasm-os/mklfs": "^0.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,23 @@
+/// Module "websocket" — WebSocket client.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface websocket {
+  /// Connect to ws:// or wss:// URI. Returns a client handle, 0 on failure.
+  websocket-client-connect: func(uri: string) -> u32;
+
+  /// Wait up to timeout-ms for the next event.
+  ///
+  /// Payload data (WEBSOCKET_EVENT_DATA) is copied into buf (up to cap
+  /// bytes; the client buffers 2048-byte chunks). Event metadata is written
+  /// to the 16-byte struct at event-out:
+  ///   struct { id: s32, data-len: s32, payload-offset: s32, payload-len: s32 }
+  /// id: ERROR=0, CONNECTED=1, DISCONNECTED=2, DATA=3 (esp_websocket_event_id_t).
+  ///
+  /// Returns 1 when an event was delivered, 0 on timeout, negative on error.
+  websocket-client-recv: func(client: u32, buf: u32, cap: u32, timeout-ms: s32, event-out: u32) -> s32;
+
+  /// Returns bytes sent or a negative error.
+  websocket-client-send-text: func(client: u32, text: string) -> s32;
+
+  /// Disconnect and destroy the client.
+  websocket-client-close: func(client: u32) -> s32;
+}

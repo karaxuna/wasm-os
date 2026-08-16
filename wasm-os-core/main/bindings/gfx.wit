@@ -1,0 +1,13 @@
+/// Module "gfx" — native software-blit helpers for guest GUI rendering.
+/// Buffers are guest addresses (bounds-checked for their full extent),
+/// strides are in bytes, colors are RGB565. Designed to back LVGL's
+/// LV_DRAW_SW_ASM_CUSTOM hooks, where interpreted pixel loops dominate.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface gfx {
+  /// Fill a w x h region with a solid color.
+  gfx-fill-rgb565: func(dst: u32, dst-stride: s32, w: s32, h: s32, color: u32) -> s32;
+  /// Fill blended with constant opacity (0..255).
+  gfx-fill-rgb565-opa: func(dst: u32, dst-stride: s32, w: s32, h: s32, color: u32, opa: u32) -> s32;
+  /// Fill through an 8-bit alpha mask (e.g. glyphs), scaled by opa.
+  gfx-fill-rgb565-mask: func(dst: u32, dst-stride: s32, mask: u32, mask-stride: s32, w: s32, h: s32, color: u32, opa: u32) -> s32;
+}

@@ -1,0 +1,31 @@
+/// Module "i2c_master" — I2C master buses and devices (driver_ng API).
+/// Buses are addressed by port number (0..I2C_NUM_MAX-1), not by handle;
+/// devices are opaque handles. Errors: 0 = ok, negative = error (see
+/// bindings/README.md).
+interface i2c-master {
+  // Bus config. Defaults: port 0, glitch filter 7, internal pullups off.
+  i2c-master-bus-config-create: func() -> u32;
+  i2c-master-bus-config-set-i2c-port: func(config: u32, port: s32) -> s32;
+  i2c-master-bus-config-set-sda-io-num: func(config: u32, pin: s32) -> s32;
+  i2c-master-bus-config-set-scl-io-num: func(config: u32, pin: s32) -> s32;
+  i2c-master-bus-config-set-enable-internal-pullup: func(config: u32, enable: u32) -> s32;
+  i2c-master-bus-config-destroy: func(config: u32) -> s32;
+  /// Creates the bus on the config's port. Fails if the port is in use.
+  i2c-new-master-bus: func(config: u32) -> s32;
+  i2c-del-master-bus: func(port: s32) -> s32;
+
+  // Device config. Defaults: 7-bit address, 100 kHz.
+  i2c-device-config-create: func() -> u32;
+  i2c-device-config-set-device-address: func(config: u32, address: u32) -> s32;
+  i2c-device-config-set-scl-speed-hz: func(config: u32, hz: u32) -> s32;
+  i2c-device-config-destroy: func(config: u32) -> s32;
+  /// Writes the device handle to the guest u32 at out.
+  i2c-master-bus-add-device: func(port: s32, config: u32, out: u32) -> s32;
+  i2c-master-bus-rm-device: func(device: u32) -> s32;
+
+  // Synchronous transfers. timeout-ms of -1 waits forever.
+  i2c-master-transmit: func(device: u32, data: u32, len: u32, timeout-ms: s32) -> s32;
+  i2c-master-receive: func(device: u32, data: u32, len: u32, timeout-ms: s32) -> s32;
+  /// Write tx then read rx with a repeated start in between.
+  i2c-master-transmit-receive: func(device: u32, tx: u32, tx-len: u32, rx: u32, rx-len: u32, timeout-ms: s32) -> s32;
+}

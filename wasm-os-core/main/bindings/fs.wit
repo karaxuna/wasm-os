@@ -1,0 +1,34 @@
+/// Module "fs" — filesystem access, sandboxed to /littlefs.
+/// Paths may be relative ("data.txt") or absolute ("/littlefs/data.txt");
+/// ".." and paths outside /littlefs are rejected.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface fs {
+  /// fopen. mode as in C ("r", "wb", ...). Returns a file handle, 0 on failure.
+  fs-open: func(path: string, mode: string) -> u32;
+
+  fs-close: func(file: u32) -> s32;
+
+  /// Returns bytes read (0 at EOF) or a negative error.
+  fs-read: func(file: u32, buf: u32, len: u32) -> s32;
+
+  /// Returns bytes written or a negative error.
+  fs-write: func(file: u32, buf: u32, len: u32) -> s32;
+
+  /// whence: SEEK_SET=0, SEEK_CUR=1, SEEK_END=2.
+  fs-seek: func(file: u32, offset: s32, whence: s32) -> s32;
+
+  /// Returns the current position or a negative error.
+  fs-tell: func(file: u32) -> s32;
+
+  fs-unlink: func(path: string) -> s32;
+
+  /// Returns a directory handle, 0 on failure. "" or "/" opens the root.
+  fs-opendir: func(path: string) -> u32;
+
+  /// Next entry: name is copied to name-buf (snprintf-style), the entry type
+  /// (DT_REG=8, DT_DIR=4) to type-out (guest u32 address, 0 to skip).
+  /// Returns 1 for an entry, 0 at the end, negative on error.
+  fs-readdir: func(dir: u32, name-buf: u32, name-cap: u32, type-out: u32) -> s32;
+
+  fs-closedir: func(dir: u32) -> s32;
+}

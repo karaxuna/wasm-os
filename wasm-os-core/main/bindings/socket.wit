@@ -1,0 +1,30 @@
+/// Module "socket" — TCP/UDP sockets (IPv4).
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface socket {
+  /// Returns a sockaddr handle, 0 on failure.
+  socketaddr-create: func() -> u32;
+
+  /// family: AF_INET=2.
+  socketaddr-set-family: func(addr: u32, family: s32) -> s32;
+
+  socketaddr-set-port: func(addr: u32, port: s32) -> s32;
+
+  /// Resolves a hostname or dotted quad (blocking DNS). -5 on resolution failure.
+  socketaddr-set-host: func(addr: u32, host: string) -> s32;
+
+  socketaddr-destroy: func(addr: u32) -> s32;
+
+  /// domain: AF_INET=2; type: SOCK_STREAM=1, SOCK_DGRAM=2.
+  /// Returns a socket handle, 0 on failure.
+  socket-create: func(domain: s32, %type: s32, protocol: s32) -> u32;
+
+  socket-connect: func(sock: u32, addr: u32) -> s32;
+
+  /// Returns bytes sent or a negative error.
+  socket-send: func(sock: u32, buf: u32, len: u32) -> s32;
+
+  /// Returns bytes received (0 = peer closed) or a negative error.
+  socket-recv: func(sock: u32, buf: u32, len: u32) -> s32;
+
+  socket-close: func(sock: u32) -> s32;
+}

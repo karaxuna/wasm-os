@@ -1,0 +1,26 @@
+{
+  "name": "wasm-os-tests",
+  "version": "0.1.0",
+  "description": "Hardware/integration tests spanning the wasm-os firmware and CLI",
+  "private": true,
+  "scripts": {
+    "test:hw": "jest --runInBand hardware.test.js",
+    "test:wifi": "jest --runInBand wifi.test.js",
+    "test:priority": "jest --runInBand priority.test.js",
+    "test:supervisor": "jest --runInBand supervisor.test.js",
+    "test:touch": "jest --runInBand touch-button.test.js",
+    "test:touch:p4": "jest --runInBand touch-lvgl-p4.test.js"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "@wasm-os/sdk": "*"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "assemblyscript": "^0.27.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

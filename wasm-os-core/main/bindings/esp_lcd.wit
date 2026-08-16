@@ -1,0 +1,59 @@
+/// Module "esp_lcd" — MIPI-DSI LCD panels (ESP32-P4 only).
+/// On other targets constructors return 0 and operations return -7
+/// (unsupported), so modules importing this interface still instantiate.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface esp-lcd {
+  // LDO power channel for the DSI PHY.
+  ldo-channel-config-create: func() -> u32;
+  ldo-channel-config-set-chan-id: func(config: u32, chan-id: s32) -> s32;
+  ldo-channel-config-set-voltage-mv: func(config: u32, voltage-mv: s32) -> s32;
+  ldo-channel-config-destroy: func(config: u32) -> s32;
+  /// Writes the channel handle to the guest u32 at out.
+  ldo-acquire-channel: func(config: u32, out: u32) -> s32;
+  ldo-release-channel: func(channel: u32) -> s32;
+
+  // DSI bus.
+  dsi-bus-config-create: func() -> u32;
+  dsi-bus-config-set-bus-id: func(config: u32, bus-id: s32) -> s32;
+  dsi-bus-config-set-num-data-lanes: func(config: u32, lanes: s32) -> s32;
+  dsi-bus-config-set-lane-bit-rate-mbps: func(config: u32, mbps: s32) -> s32;
+  dsi-bus-config-destroy: func(config: u32) -> s32;
+  lcd-new-dsi-bus: func(config: u32, out: u32) -> s32;
+  lcd-del-dsi-bus: func(bus: u32) -> s32;
+
+  // DBI panel IO (command/parameter channel).
+  dbi-io-config-create: func() -> u32;
+  dbi-io-config-set-virtual-channel: func(config: u32, channel: s32) -> s32;
+  dbi-io-config-set-lcd-cmd-bits: func(config: u32, bits: s32) -> s32;
+  dbi-io-config-set-lcd-param-bits: func(config: u32, bits: s32) -> s32;
+  dbi-io-config-destroy: func(config: u32) -> s32;
+  lcd-new-panel-io-dbi: func(bus: u32, config: u32, out: u32) -> s32;
+  lcd-panel-io-del: func(io: u32) -> s32;
+  /// params may be 0/0 for parameterless commands.
+  lcd-panel-io-tx-param: func(io: u32, cmd: s32, params: u32, params-len: u32) -> s32;
+  /// Reads params-len bytes of a register/command response into params.
+  lcd-panel-io-rx-param: func(io: u32, cmd: s32, params: u32, params-len: u32) -> s32;
+
+  // DPI panel (pixel stream). Defaults: RGB565, 1 framebuffer.
+  dpi-panel-config-create: func() -> u32;
+  dpi-panel-config-set-virtual-channel: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-dpi-clock-freq-mhz: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-h-size: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-v-size: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-hsync-pulse-width: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-hsync-back-porch: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-hsync-front-porch: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-vsync-pulse-width: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-vsync-back-porch: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-set-vsync-front-porch: func(config: u32, v: u32) -> s32;
+  dpi-panel-config-destroy: func(config: u32) -> s32;
+  lcd-new-panel-dpi: func(bus: u32, config: u32, out: u32) -> s32;
+
+  // Panel operations.
+  lcd-panel-reset: func(panel: u32) -> s32;
+  lcd-panel-init: func(panel: u32) -> s32;
+  lcd-panel-del: func(panel: u32) -> s32;
+  lcd-panel-disp-on-off: func(panel: u32, on: u32) -> s32;
+  /// data-len is the byte length of the pixel buffer, validated up front.
+  lcd-panel-draw-bitmap: func(panel: u32, x1: s32, y1: s32, x2: s32, y2: s32, data: u32, data-len: u32) -> s32;
+}

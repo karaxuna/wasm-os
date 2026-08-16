@@ -1,0 +1,43 @@
+# Changesets release automation. On every push to master with pending
+# changesets, opens/updates a "Version Packages" PR; when that PR merges,
+# publishes the bumped packages to npm with provenance.
+#
+# Needs an NPM_TOKEN repository secret (npm automation token) once the repo
+# lives on GitHub.
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # version PR + git tags
+      pull-requests: write # the "Version Packages" PR
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          publish: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

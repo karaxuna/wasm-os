@@ -1,0 +1,1 @@
+-B build/esp32s3-16mb-psram -DSDKCONFIG=build/esp32s3-16mb-psram/sdkconfig -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.esp32s3;sdkconfig.flash-16mb;sdkconfig.psram"

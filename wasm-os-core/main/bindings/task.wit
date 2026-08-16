@@ -1,0 +1,13 @@
+/// Module "task" — run guest functions on their own FreeRTOS tasks.
+/// Each spawned task gets its own WAMR exec env; tasks run to completion and
+/// clean themselves up (there is deliberately no task-delete: killing a task
+/// mid-execution would leak host resources). At most 8 tasks may be live.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+interface task {
+  /// Run the guest function at table-idx (no parameters) on a new task.
+  /// stack-size in bytes (2048..65536); core 0, 1, or -1.
+  /// priority 0..10 — capped below the serial command handler so a spinning
+  /// guest can never make the device unreachable over serial.
+  /// for no affinity.
+  task-spawn: func(table-idx: u32, name: string, stack-size: s32, priority: s32, core: s32) -> s32;
+}

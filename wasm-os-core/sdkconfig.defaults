@@ -1,0 +1,57 @@
+#
+# Logging Configuration
+#
+CONFIG_LOG_COLORS=y
+CONFIG_I2S_ENABLE_DEBUG_LOG=y
+CONFIG_LOG_DEFAULT_LEVEL=4
+CONFIG_BOOTLOADER_LOG_COLORS=y
+CONFIG_ESP_SYSTEM_USE_FRAME_POINTER
+
+#
+# Security & Memory Configuration
+#
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+#
+# WebSocket Configuration (for WASM app bindings)
+#
+CONFIG_WS_TRANSPORT=y
+CONFIG_WS_BUFFER_SIZE=1024
+CONFIG_WS_DYNAMIC_BUFFER=y
+CONFIG_ESP_WS_CLIENT_ENABLE_DYNAMIC_BUFFER=y
+
+#
+# ESP-IDF Feature Flags
+#
+CONFIG_IDF_EXPERIMENTAL_FEATURES=y
+
+#
+# Partition Table
+# Flash size and partition file set by sdkconfig.flash-{4mb,8mb,16mb}
+#
+CONFIG_PARTITION_TABLE_CUSTOM=y
+
+#
+# ESP-TLS
+#
+CONFIG_ESP_TLS_USING_MBEDTLS=y
+CONFIG_ESP_TLS_SERVER_MIN_AUTH_MODE_OPTIONAL=y
+CONFIG_ESP_TLS_INSECURE=y
+CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y
+
+#
+# WAMR: thread manager (spawned exec envs for the task bindings)
+#
+CONFIG_WAMR_ENABLE_LIB_PTHREAD=y
+
+#
+# No NVS: device config lives in /littlefs/.env, so the WiFi stack must not
+# expect an NVS store either.
+#
+CONFIG_ESP_WIFI_NVS_ENABLED=n
+
+#
+# -O2: the WAMR interpreter loop and the native gfx fills live in this image;
+# IDF's -Og default costs a multiple of guest rendering throughput.
+#
+CONFIG_COMPILER_OPTIMIZATION_PERF=y

@@ -1,0 +1,32 @@
+/// Module "wifi" — station-mode WiFi, initiated by the app.
+/// Errors: 0 = ok, negative = error (see bindings/README.md).
+///
+/// The firmware never connects on its own. A connection established here
+/// survives app restarts (e.g. a push); reconnects after link loss are
+/// retried automatically until the retry budget is exhausted.
+interface wifi {
+  /// Start connecting (non-blocking); watch progress via state/wait.
+  /// Credentials come from the guest — apps typically read
+  /// WIFI_SSID/WIFI_PASS from their environment (env.getenv). An empty
+  /// ssid is -6; an empty pass targets an open network. Fails while a
+  /// connect is in flight; when already connected, the current network is
+  /// dropped first.
+  wifi-connect: func(ssid: string, pass: string) -> s32;
+
+  /// Drop the connection (if any) and stop the WiFi driver.
+  wifi-disconnect: func() -> s32;
+
+  /// Connection state: 0 disconnected, 1 connecting, 2 connected, 3 failed
+  /// (gave up retrying).
+  wifi-state: func() -> s32;
+
+  /// Block until the in-flight connect resolves: 0 once connected,
+  /// -0x107 (ESP_ERR_TIMEOUT) when timeout-ms elapses first, -1 negated
+  /// ESP_FAIL when it gave up.
+  wifi-wait: func(timeout-ms: s32) -> s32;
+
+  /// Station IPv4 address as text, snprintf-style: returns the length and
+  /// copies the value + NUL into buf when cap is large enough.
+  /// Negated ESP_ERR_INVALID_STATE when not connected.
+  wifi-ip: func(buf: u32, cap: u32) -> s32;
+}

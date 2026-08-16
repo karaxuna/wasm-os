@@ -1,0 +1,15 @@
+/// Module "callback" — register guest functions as invokable handles.
+/// Invocation runs on the caller's own exec env, so it is safe from any
+/// guest task. At most 32 callbacks may be registered; up to 8 u32 args.
+interface callback {
+  /// Register the guest function at table-idx. Returns a callback handle,
+  /// or u32::MAX on failure.
+  callback-register: func(table-idx: u32) -> u32;
+
+  /// Invoke a callback with n-args u32 values read from guest memory at
+  /// args (may be 0/0). Returns the callback's first result (0 for void
+  /// callbacks), or u32::MAX on error.
+  callback-invoke: func(handle: u32, args: u32, n-args: u32) -> u32;
+
+  callback-unregister: func(handle: u32);
+}
