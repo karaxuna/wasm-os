@@ -7,7 +7,7 @@ const { withDevice, resolvePort } = require("./device");
 const { openNodeSerialTransport, listPorts, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
 const { CHUNK_SIZE } = require("wasm-os-sdk/src/protocol");
 const { connect, flashSegments, hardReset, FLASH_BAUD } = require("./flash");
-const { buildLittlefsImage, littlefsImageSegments } = require("wasm-os-sdk/src/mklfs");
+const { buildLittlefsImage } = require("wasm-os-sdk/src/mklfs");
 const { findPartition } = require("wasm-os-sdk/src/partitions");
 
 function portOptions(command) {
@@ -168,31 +168,25 @@ program
           files.push({ name: ".env", data: fs.readFileSync(path.resolve(opts.env)) });
         }
 
+        /* The full partition image is written, not just the touched blocks:
+         * esptool erases exactly the region it writes, and the whole region
+         * must be erased or stale littlefs metadata from a previous
+         * filesystem can out-revision a freshly written metadata pair. The
+         * 0xFF bulk compresses to almost nothing on the wire. */
         const fsImage = await buildLittlefsImage(files, partition.size);
-        const fsSegments = littlefsImageSegments(fsImage, partition.offset);
-        const written = fsSegments.reduce((n, s) => {
-          return n + s.data.length;
-        }, 0);
         console.log(
-          `littlefs: ${files.map((f) => f.name).join(", ")} -> ${written} bytes in ${fsSegments.length} segment(s) at 0x${partition.offset.toString(16)}`
+          `littlefs: ${files.map((f) => f.name).join(", ")} -> ${fsImage.length} bytes at 0x${partition.offset.toString(16)}`
         );
-        segments.push(...fsSegments);
+        segments.push({ data: fsImage, address: partition.offset });
       }
 
       const portPath = await resolvePort(opts);
       console.log(`Port: ${portPath}`);
       console.log(`Image: ${imagePath} (${data.length} bytes) -> 0x${address.toString(16)}`);
 
-      const eraseRegions = [];
-      if (segments.length > 1 && !opts.erase) {
-        const partition = findPartition(data, "littlefs");
-        eraseRegions.push({ offset: partition.offset, size: partition.size });
-      }
-
       await flashSegments(portPath, segments, {
         baud: parseInt(opts.baud, 10) || FLASH_BAUD,
         eraseAll: Boolean(opts.erase),
-        eraseRegions,
       });
       console.log("Flash complete. Device restarted.");
     } catch (err) {

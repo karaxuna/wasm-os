@@ -88,7 +88,7 @@ function hardReset(portPath) {
  * littlefs partition, so a normal flash leaves the pushed .wasm app intact.
  * `eraseAll` wipes it.
  */
-async function flashSegments(portPath, segments, { baud = FLASH_BAUD, eraseAll = false, eraseRegions = [] } = {}) {
+async function flashSegments(portPath, segments, { baud = FLASH_BAUD, eraseAll = false } = {}) {
   const { loader, transport, chip } = await connect(portPath, { baud });
 
   try {
@@ -97,15 +97,6 @@ async function flashSegments(portPath, segments, { baud = FLASH_BAUD, eraseAll =
     if (eraseAll) {
       process.stdout.write("Erasing flash... ");
       await loader.eraseFlash();
-      console.log("OK");
-    }
-
-    /* Regions rewritten as sparse segments (littlefs) must be erased whole
-     * first: a stale metadata block left over from a previous filesystem can
-     * out-revision the freshly written half of a littlefs metadata pair. */
-    for (const region of eraseRegions) {
-      process.stdout.write(`Erasing 0x${region.size.toString(16)} bytes at 0x${region.offset.toString(16)}... `);
-      await loader.eraseRegion(region.offset, region.size);
       console.log("OK");
     }
 

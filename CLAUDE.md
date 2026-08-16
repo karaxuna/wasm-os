@@ -84,10 +84,11 @@ too, which does destroy them.
 builds the filesystem image in-process (littlefs compiled to WASM in
 `wasm-os-sdk/mklfs/`, pinned to the firmware's lfs version and geometry —
 bump them together), locates the partition by parsing the partition table at
-`0x8000` inside the image, erases the partition region (stale metadata pairs
-from a previous filesystem could out-revision fresh ones), and writes only
-the non-erased block runs. The device boots with the app and settings
-already in place — no serial push needed.
+`0x8000` inside the image, and writes the whole partition image — esptool
+erases exactly what it writes, and the full region must be erased or stale
+metadata pairs from a previous filesystem could out-revision fresh ones
+(the 0xFF bulk compresses to almost nothing on the wire). The device boots
+with the app and settings already in place — no serial push needed.
 
 Three things about `esptool-js` are load-bearing (see `wasm-os-cli/src/webserial.js`):
 its published `lib/` uses extensionless imports Node's ESM resolver rejects, so
