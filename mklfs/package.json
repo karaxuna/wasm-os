@@ -1,8 +1,11 @@
 {
   "name": "mklfs",
   "version": "0.1.0",
-  "description": "Build littlefs filesystem images in pure JavaScript — littlefs compiled to WebAssembly, no native binaries, runs in Node and the browser",
+  "description": "Build and read littlefs filesystem images in pure JavaScript - littlefs compiled to WebAssembly, no native binaries, runs in Node and the browser",
   "main": "src/index.js",
+  "bin": {
+    "mklfs": "./src/cli.js"
+  },
   "files": [
     "src",
     "assets"
