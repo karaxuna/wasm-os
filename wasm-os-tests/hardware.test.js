@@ -1,9 +1,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { SerialPort } = require("serialport");
-const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
-const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker } = require("./lib");
+const { FIXTURES_DIR, flashFirmware, openDevice, waitForMarker, autoDetectPort, listPorts } = require("./lib");
 
 const OUTPUT_WASM = path.resolve(FIXTURES_DIR, "output.wasm");
 
@@ -20,7 +18,7 @@ let portPath;
 beforeAll(async () => {
   portPath = await autoDetectPort();
   if (!portPath) {
-    const ports = await SerialPort.list();
+    const ports = await listPorts();
     console.log("Available ports:", ports.map((p) => p.path));
     throw new Error("No ESP32 device detected. Connect a board via USB.");
   }
@@ -71,16 +69,16 @@ describe("push wasm", () => {
 
       // Push to device
       console.log("Pushing WASM to device...");
-      const port = await openPort(portPath);
+      const { transport, client } = await openDevice(portPath);
 
       let output;
       try {
-        await pushFile(port, wasm, "main.wasm");
+        await client.pushFile(wasm, "main.wasm");
 
         // Listen for serial output to confirm the app ran
-        output = await waitForMarker(port, "wasm-os test app done", RUN_TIMEOUT);
+        output = await waitForMarker(transport, "wasm-os test app done", RUN_TIMEOUT);
       } finally {
-        await closePort(port);
+        await transport.close();
       }
 
       console.log("Device output:\n", output);

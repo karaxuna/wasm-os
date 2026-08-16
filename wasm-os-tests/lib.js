@@ -1,11 +1,11 @@
 /**
- * Shared plumbing for the hardware suites: firmware location, flashing, the
- * serial push protocol, and marker-based assertions on device output.
+ * Shared plumbing for the hardware suites: firmware location, flashing, and
+ * device access through wasm-os-sdk (Node transport + device client).
  */
 const { execSync } = require("child_process");
 const path = require("path");
-const { sendAndWaitForResponse, sendCommandWithRetry, PUSH_BEGIN_TIMEOUT } = require("wasm-os/src/serial");
-const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("wasm-os/src/protocol");
+const { createDeviceClient, hardReset } = require("wasm-os-sdk/src/client");
+const { openNodeSerialTransport, autoDetectPort, listPorts } = require("wasm-os-sdk/src/transports/node-serial");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../wasm-os-core");
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
@@ -19,57 +19,31 @@ function flashFirmware(portPath, profile, timeoutMs) {
   );
 }
 
-/**
- * Stream a file to /littlefs/<name> over the serial protocol. Opening the
- * port resets auto-reset boards, so PUSH_BEGIN retries until the device
- * answers; `options` is forwarded to sendCommandWithRetry to override that.
- */
-async function pushFile(port, data, name, options = {}) {
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, name), {
-    timeout: PUSH_BEGIN_TIMEOUT,
-    ...options,
-  });
-  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    await sendAndWaitForResponse(port, buildPushDataFrame(data.subarray(i, Math.min(i + CHUNK_SIZE, data.length))));
-  }
-  await sendAndWaitForResponse(port, buildPushEndFrame());
+/** Open the port and wrap it in an SDK transport + device client. */
+async function openDevice(portPath) {
+  const transport = await openNodeSerialTransport(portPath);
+  const client = createDeviceClient(transport);
+  return { transport, client };
 }
 
 /** Resolve when `marker` shows up in the serial stream; reject on timeout. */
-function waitForMarker(port, marker, timeoutMs) {
+function waitForMarker(transport, marker, timeoutMs) {
   return new Promise((resolve, reject) => {
     let buf = "";
+    let unsubscribe = () => {};
+
     const timer = setTimeout(() => {
-      port.off("data", onData);
+      unsubscribe();
       reject(new Error(`Timed out after ${timeoutMs / 1000}s waiting for "${marker}". Device output:\n${buf}`));
     }, timeoutMs);
 
-    const onData = (data) => {
+    unsubscribe = transport.subscribe((data) => {
       buf += data.toString();
       if (buf.includes(marker)) {
         clearTimeout(timer);
-        port.off("data", onData);
+        unsubscribe();
         resolve(buf);
       }
-    };
-
-    port.on("data", onData);
-  });
-}
-
-/**
- * Pulse EN via RTS while leaving IO0 (DTR) high, so the chip reboots into the
- * application rather than the ROM downloader. Device settings (.env) are only
- * read at boot, so pushing them is pointless without this.
- */
-function hardReset(port) {
-  return new Promise((resolve) => {
-    port.set({ dtr: false, rts: true }, () => {
-      setTimeout(() => {
-        port.set({ dtr: false, rts: false }, () => {
-          return resolve();
-        });
-      }, 150);
     });
   });
 }
@@ -79,7 +53,9 @@ module.exports = {
   FIXTURES_DIR,
   IDF_PATH,
   flashFirmware,
-  pushFile,
+  openDevice,
   waitForMarker,
   hardReset,
+  autoDetectPort,
+  listPorts,
 };

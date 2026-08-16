@@ -24,9 +24,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, sendCommandWithRetry, autoDetectPort } = require("wasm-os/src/serial");
-const { buildDeleteFrame, buildRestartFrame } = require("wasm-os/src/protocol");
-const { FIXTURES_DIR, pushFile } = require("./lib");
+const { FIXTURES_DIR, openDevice, autoDetectPort } = require("./lib");
 
 const HOSTILE_WASM = path.join(FIXTURES_DIR, "hostile.wasm");
 
@@ -62,34 +60,34 @@ beforeAll(async () => {
 describe("serial handler outranks a spinning guest", () => {
   it("stays reachable while an app spins without yielding", async () => {
     const wasm = fs.readFileSync(HOSTILE_WASM);
-    const port = await openPort(portPath);
+    const { transport, client } = await openDevice(portPath);
 
     try {
       // PUSH_END starts it, so the device is spinning from here on.
       console.log("Pushing the spinning app as main.wasm...");
-      await pushFile(port, wasm, "main.wasm", { attempts: 1 });
+      await client.pushFile(wasm, "main.wasm", { beginAttempts: 1 });
       await new Promise((r) => setTimeout(r, SPIN_SETTLE_MS));
 
       // The real assertions: every command below has to get through while
       // the guest is monopolising the CPU.
       console.log("PUSH while spinning...");
-      await pushFile(port, Buffer.from("reachable\n"), "priority-probe.txt", { attempts: 1 });
+      await client.pushFile(Buffer.from("reachable\n"), "priority-probe.txt", { beginAttempts: 1 });
 
       console.log("DELETE while spinning...");
-      await sendCommandWithRetry(port, buildDeleteFrame("priority-probe.txt"));
+      await client.deleteFile("priority-probe.txt");
 
       console.log("RESTART while spinning...");
-      await sendCommandWithRetry(port, buildRestartFrame());
+      await client.restart();
       console.log("All commands answered.");
     } finally {
       // Leave no spinning app behind: delete it, then restart into nothing.
       try {
-        await sendCommandWithRetry(port, buildDeleteFrame("main.wasm"));
-        await sendCommandWithRetry(port, buildRestartFrame());
+        await client.deleteFile("main.wasm");
+        await client.restart();
       } catch (err) {
         console.warn(`Cleanup failed: ${err.message}`);
       }
-      await closePort(port);
+      await transport.close();
     }
   }, 120_000);
 });

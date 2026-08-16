@@ -4,11 +4,12 @@
   "description": "WebAssembly OS for ESP32 - run WASM modules on microcontrollers",
   "private": true,
   "workspaces": [
+    "wasm-os-sdk",
     "wasm-os-cli",
     "wasm-os-tests"
   ],
   "scripts": {
-    "test": "npm test --workspace wasm-os",
+    "test": "npm test --workspace wasm-os-sdk",
     "test:hw": "npm run test:hw --workspace wasm-os-tests",
     "test:wifi": "npm run test:wifi --workspace wasm-os-tests",
     "test:priority": "npm run test:priority --workspace wasm-os-tests",

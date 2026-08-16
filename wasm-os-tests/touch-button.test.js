@@ -15,8 +15,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
-const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker } = require("./lib");
+const { FIXTURES_DIR, flashFirmware, openDevice, waitForMarker, autoDetectPort } = require("./lib");
 
 const FIXTURE_DIR = path.join(FIXTURES_DIR, "touch-button");
 const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
@@ -67,23 +66,23 @@ describe("touch button (human in the loop)", () => {
       // Give the device time to boot after flashing.
       await new Promise((r) => setTimeout(r, 3000));
 
-      const port = await openPort(portPath);
+      const { transport, client } = await openDevice(portPath);
       try {
         console.log("Pushing app...");
-        await pushFile(port, wasm, "main.wasm");
+        await client.pushFile(wasm, "main.wasm");
 
         console.log("Waiting for the app to draw its UI...");
-        await waitForMarker(port, "UI_READY", READY_TIMEOUT);
+        await waitForMarker(transport, "UI_READY", READY_TIMEOUT);
 
         console.log("\n" + "=".repeat(60));
         console.log("👉  PRESS THE GREEN BUTTON ON THE TOUCHSCREEN NOW");
         console.log(`    (you have ${HUMAN_TIMEOUT / 1000} seconds; it turns blue when registered)`);
         console.log("=".repeat(60) + "\n");
 
-        await waitForMarker(port, "BUTTON_PRESSED", HUMAN_TIMEOUT);
+        await waitForMarker(transport, "BUTTON_PRESSED", HUMAN_TIMEOUT);
         console.log("Button press detected — test passed.");
       } finally {
-        await closePort(port);
+        await transport.close();
       }
     },
     BUILD_TIMEOUT + READY_TIMEOUT + HUMAN_TIMEOUT + 60_000

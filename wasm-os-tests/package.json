@@ -12,8 +12,8 @@
     "test:touch:p4": "jest --runInBand touch-lvgl-p4.test.js"
   },
   "dependencies": {
-    "wasm-os": "^0.1.0",
-    "serialport": "^12.0.0"
+    "serialport": "^12.0.0",
+    "wasm-os-sdk": "^0.1.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",

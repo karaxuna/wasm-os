@@ -12,7 +12,8 @@ npm-workspaces monorepo (root `package.json` is the version source and workspace
 - `wasm-os-core/main/` - the firmware component
 - `wasm-os-core/main/bindings/` - WASM-facing host API (one module per file, `.wit` docs alongside)
 - `wasm-os-core/profiles/` - Build profiles for different ESP32 variants
-- `wasm-os-cli/` - Node.js CLI (npm package `wasm-os`) for pushing .wasm files to device over USB serial; its unit tests live in `wasm-os-cli/tests/`
+- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): the serial protocol (pure Uint8Array, browser-safe), a transport-agnostic device client, and Node (node-serialport) + browser (Web Serial) transports; unit tests in `wasm-os-sdk/tests/`
+- `wasm-os-cli/` - Node.js CLI (npm package `wasm-os`), a thin commander wrapper over wasm-os-sdk plus esptool-js flashing
 - `wasm-os-tests/` - hardware/e2e suites spanning firmware + CLI, with the WASM fixtures and toolchain fetch scripts
 
 ## Build & Flash
@@ -91,7 +92,7 @@ lost and the wrong reset sequence is chosen.
 All runnable from the repo root; `npm test` never touches hardware.
 
 ```bash
-npm test                 # CLI protocol unit tests (wasm-os-cli/tests, no hardware)
+npm test                 # SDK protocol unit tests (wasm-os-sdk/tests, no hardware)
 npm run test:hw          # hardware integration (requires connected ESP32)
 npm run test:wifi        # hardware: app connects to WiFi via the wifi binding and makes an HTTP request (needs wasm-os-tests/.env credentials)
 npm run test:supervisor  # hardware: two-slot runtime — a supervisor app starts/stops/reclaims child apps
@@ -109,7 +110,7 @@ The P4 touch test (`test:touch:p4`, `WASM_OS_PROFILE=esp32p4-16mb-psram`) target
 
 ## Serial Protocol
 
-Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-cli/src/protocol.js` — keep the two in sync (same repo, same PR).
+Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-sdk/src/protocol.js` — keep the two in sync (same repo, same PR).
 
 PUSH_BEGIN stops both app slots (child first, then main), because a busy guest in either slot starves the serial task and stalls the transfer. The main app restarts once the transfer ends — on success, failure, or when a later PUSH_BEGIN supersedes an abandoned one — so a push never leaves the device app-less; re-launching the child is the main app's job. Pushing any file therefore restarts the app; `main.wasm` additionally starts even if nothing was running.
 
@@ -132,5 +133,6 @@ PUSH_BEGIN stops both app slots (child first, then main), because a busy guest i
 - `wasm-os-core/main/serial_cmd.c` - USB serial protocol handler
 - `wasm-os-core/main/bindings/app.c` - Child-app lifecycle binding (start/stop/status, main-slot only)
 - `wasm-os-core/main/bindings/` - Hardware bindings (GPIO, SPI, I2S, LCD, HTTP, WebSocket, sockets, fs, ...)
-- `wasm-os-cli/src/protocol.js` - CLI-side protocol implementation
+- `wasm-os-sdk/src/protocol.js` - JS-side protocol implementation (shared by CLI, tests, and the browser)
+- `wasm-os-sdk/src/client.js` - transport-agnostic device client (push/delete/restart, hard reset)
 - `wasm-os-cli/src/device.js` - Port resolution and open/run/close scaffolding for commands

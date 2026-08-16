@@ -1,4 +1,5 @@
-const { openPort, closePort, autoDetectPort, DEFAULT_BAUD } = require("./serial");
+const { openNodeSerialTransport, autoDetectPort, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
+const { createDeviceClient } = require("wasm-os-sdk/src/client");
 
 /**
  * Resolve the serial port path from command options (or auto-detection).
@@ -13,18 +14,20 @@ async function resolvePort(opts) {
 }
 
 /**
- * Open the device, run `fn(port)`, and always close the port afterwards —
- * also on failure, so a crashed command never wedges the serial device.
+ * Open the device, run `fn(client, transport)`, and always close the port
+ * afterwards — also on failure, so a crashed command never wedges the
+ * serial device.
  */
 async function withDevice(opts, fn) {
   const portPath = await resolvePort(opts);
   console.log(`Port: ${portPath}`);
 
-  const port = await openPort(portPath, parseInt(opts.baud, 10) || DEFAULT_BAUD);
+  const transport = await openNodeSerialTransport(portPath, parseInt(opts.baud, 10) || DEFAULT_BAUD);
+  const client = createDeviceClient(transport);
   try {
-    return await fn(port);
+    return await fn(client, transport);
   } finally {
-    await closePort(port);
+    await transport.close();
   }
 }
 

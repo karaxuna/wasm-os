@@ -15,8 +15,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
-const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker, hardReset } = require("./lib");
+const { FIXTURES_DIR, flashFirmware, openDevice, waitForMarker, hardReset, autoDetectPort } = require("./lib");
 
 const OUTPUT_WASM = path.resolve(FIXTURES_DIR, "wifi-http.wasm");
 const ENV_FILE = path.resolve(__dirname, ".env");
@@ -80,24 +79,24 @@ describe("wifi binding", () => {
       // Give the device time to boot after flashing.
       await new Promise((r) => setTimeout(r, 5000));
 
-      const port = await openPort(portPath);
+      const { transport, client } = await openDevice(portPath);
       try {
         console.log("Pushing device settings (.env)...");
-        await pushFile(port, fs.readFileSync(ENV_FILE), ".env");
+        await client.pushFile(fs.readFileSync(ENV_FILE), ".env");
 
         console.log("Pushing app...");
-        await pushFile(port, wasm, "main.wasm");
+        await client.pushFile(wasm, "main.wasm");
 
         // Settings are only read at boot, so reboot before expecting markers.
         console.log("Rebooting...");
-        await hardReset(port);
+        await hardReset(transport);
 
-        const output = await waitForMarker(port, "wifi test app done", RUN_TIMEOUT);
+        const output = await waitForMarker(transport, "wifi test app done", RUN_TIMEOUT);
         console.log("Device output:\n", output);
         expect(output).toContain("WIFI_CONNECTED");
         expect(output).toContain("HTTP_STATUS 200");
       } finally {
-        await closePort(port);
+        await transport.close();
       }
     },
     RUN_TIMEOUT + 60_000

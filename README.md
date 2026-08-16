@@ -9,7 +9,8 @@ An npm-workspaces monorepo:
 - `wasm-os-core/` - ESP32 firmware (C, ESP-IDF v5.5, WAMR runtime)
   - `main/bindings/` - the WASM-facing host API, one module per file (see `main/bindings/README.md` for the ABI conventions)
   - `profiles/` - build profiles per ESP32 variant / flash size
-- `wasm-os-cli/` - CLI tool (Node.js, npm package `wasm-os`) for pushing WASM files to the device
+- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): protocol + device client, with Node and Web Serial transports so browsers can talk to devices too
+- `wasm-os-cli/` - CLI tool (Node.js, npm package `wasm-os`) built on the SDK
 - `wasm-os-tests/` - hardware/integration test suites spanning firmware and CLI
 
 ## Architecture

@@ -18,8 +18,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
-const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker, hardReset } = require("./lib");
+const { FIXTURES_DIR, flashFirmware, openDevice, waitForMarker, hardReset, autoDetectPort } = require("./lib");
 
 const FIXTURE_DIR = path.join(FIXTURES_DIR, "lvgl-touch-p4");
 const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
@@ -72,41 +71,41 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
       // Give the device time to boot after flashing.
       await new Promise((r) => setTimeout(r, 3000));
 
-      const port = await openPort(portPath);
+      const { transport, client } = await openDevice(portPath);
       try {
         const hasEnv = fs.existsSync(ENV_FILE);
         if (hasEnv) {
           console.log("Pushing device settings (.env)...");
-          await pushFile(port, fs.readFileSync(ENV_FILE), ".env");
+          await client.pushFile(fs.readFileSync(ENV_FILE), ".env");
         } else {
           console.log(`No ${ENV_FILE}; the app cannot fetch buttons without WiFi.`);
         }
 
         console.log("Pushing app...");
-        await pushFile(port, wasm, "main.wasm");
+        await client.pushFile(wasm, "main.wasm");
 
         /* Push before rebooting, not after: settings are only read at boot,
          * and a freshly booted app blocks the serial task through its first
          * full-screen render, which starves an in-flight transfer. */
         console.log("Rebooting...");
-        await hardReset(port);
+        await hardReset(transport);
         if (hasEnv) {
-          await waitForMarker(port, "Got IP:", WIFI_TIMEOUT);
+          await waitForMarker(transport, "Got IP:", WIFI_TIMEOUT);
           console.log("Device online.");
         }
 
         console.log("Waiting for the app to draw its UI...");
-        await waitForMarker(port, "UI_READY", READY_TIMEOUT);
+        await waitForMarker(transport, "UI_READY", READY_TIMEOUT);
 
         console.log("\n" + "=".repeat(60));
         console.log("👉  PRESS THE GREEN BUTTON ON THE TOUCHSCREEN NOW");
         console.log(`    (you have ${HUMAN_TIMEOUT / 1000} seconds; it turns blue when registered)`);
         console.log("=".repeat(60) + "\n");
 
-        await waitForMarker(port, "BUTTON_PRESSED", HUMAN_TIMEOUT);
+        await waitForMarker(transport, "BUTTON_PRESSED", HUMAN_TIMEOUT);
         console.log("Button press detected — test passed.");
       } finally {
-        await closePort(port);
+        await transport.close();
       }
     },
     BUILD_TIMEOUT + WIFI_TIMEOUT + READY_TIMEOUT + HUMAN_TIMEOUT + 60_000

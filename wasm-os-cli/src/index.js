@@ -4,21 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const { program } = require("commander");
 const { withDevice, resolvePort } = require("./device");
-const {
-  openPort,
-  sendAndWaitForResponse,
-  sendCommandWithRetry,
-  PUSH_BEGIN_TIMEOUT,
-  DEFAULT_BAUD,
-} = require("./serial");
-const {
-  buildPushBeginFrame,
-  buildPushDataFrame,
-  buildPushEndFrame,
-  buildRestartFrame,
-  buildDeleteFrame,
-  CHUNK_SIZE,
-} = require("./protocol");
+const { openNodeSerialTransport, listPorts, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
+const { CHUNK_SIZE } = require("wasm-os-sdk/src/protocol");
 const { connect, flashImage, hardReset, FLASH_BAUD } = require("./flash");
 
 function portOptions(command) {
@@ -32,26 +19,24 @@ function fail(err) {
   process.exit(1);
 }
 
-async function pushFile(port, data, destName) {
+async function pushFile(client, data, destName) {
   process.stdout.write("Starting transfer... ");
-  await sendCommandWithRetry(port, buildPushBeginFrame(data.length, destName), {
-    timeout: PUSH_BEGIN_TIMEOUT,
-  });
-  console.log("OK");
+  let begun = false;
 
   const totalChunks = Math.ceil(data.length / CHUNK_SIZE);
-  for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
-    const chunk = data.subarray(offset, Math.min(offset + CHUNK_SIZE, data.length));
-    const chunkNum = Math.floor(offset / CHUNK_SIZE) + 1;
-    const pct = Math.round(((offset + chunk.length) / data.length) * 100);
-    process.stdout.write(`\rSending: ${chunkNum}/${totalChunks} chunks (${pct}%)`);
-    await sendAndWaitForResponse(port, buildPushDataFrame(chunk));
-  }
-  console.log("");
+  await client.pushFile(data, destName, {
+    onProgress: (sent, total) => {
+      if (!begun) {
+        console.log("OK");
+        begun = true;
+      }
+      const chunkNum = Math.ceil(sent / CHUNK_SIZE);
+      const pct = Math.round((sent / total) * 100);
+      process.stdout.write(`\rSending: ${chunkNum}/${totalChunks} chunks (${pct}%)`);
+    },
+  });
 
-  process.stdout.write("Finalizing... ");
-  await sendAndWaitForResponse(port, buildPushEndFrame());
-  console.log("OK");
+  console.log("\nFinalized. OK");
 }
 
 program
@@ -76,7 +61,7 @@ portOptions(
     const destName = opts.name || path.basename(filePath);
     console.log(`File: ${filePath} (${data.length} bytes) -> ${destName}`);
 
-    await withDevice(opts, (port) => pushFile(port, data, destName));
+    await withDevice(opts, (client) => pushFile(client, data, destName));
     console.log(`Push complete. ${destName} written to device.`);
   } catch (err) {
     fail(err);
@@ -91,10 +76,10 @@ portOptions(
     .argument("<files...>", "Filenames on the device")
 ).action(async (files, opts) => {
   try {
-    await withDevice(opts, async (port) => {
+    await withDevice(opts, async (client) => {
       for (const name of files) {
         process.stdout.write(`Deleting ${name}... `);
-        await sendCommandWithRetry(port, buildDeleteFrame(name));
+        await client.deleteFile(name);
         console.log("OK");
       }
     });
@@ -105,9 +90,9 @@ portOptions(
 
 portOptions(program.command("restart").description("Restart the WASM module on the device")).action(async (opts) => {
   try {
-    await withDevice(opts, async (port) => {
+    await withDevice(opts, async (client) => {
       process.stdout.write("Restarting WASM module... ");
-      await sendCommandWithRetry(port, buildRestartFrame());
+      await client.restart();
       console.log("OK");
     });
   } catch (err) {
@@ -119,20 +104,20 @@ portOptions(program.command("monitor").description("Stream serial output from th
   try {
     const portPath = await resolvePort(opts);
     console.log(`Monitoring ${portPath} (Ctrl+C to exit)\n---`);
-    const port = await openPort(portPath, parseInt(opts.baud, 10) || DEFAULT_BAUD);
+    const transport = await openNodeSerialTransport(portPath, parseInt(opts.baud, 10) || DEFAULT_BAUD);
 
-    port.on("data", (data) => process.stdout.write(data));
-    port.on("error", (err) => {
+    transport.subscribe((data) => process.stdout.write(data));
+    transport.port.on("error", (err) => {
       console.error(`\nSerial error: ${err.message}`);
       process.exit(1);
     });
-    port.on("close", () => {
+    transport.port.on("close", () => {
       console.log("\n--- Port closed");
       process.exit(0);
     });
     process.on("SIGINT", () => {
       console.log("\n--- Stopped");
-      port.close();
+      transport.close();
     });
   } catch (err) {
     fail(err);
@@ -208,8 +193,7 @@ program
   .command("ports")
   .description("List available serial ports")
   .action(async () => {
-    const { SerialPort } = require("serialport");
-    const ports = await SerialPort.list();
+    const ports = await listPorts();
 
     if (ports.length === 0) {
       console.log("No serial ports found.");

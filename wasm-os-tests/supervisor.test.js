@@ -13,8 +13,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { openPort, closePort, autoDetectPort } = require("wasm-os/src/serial");
-const { FIXTURES_DIR, flashFirmware, pushFile, waitForMarker } = require("./lib");
+const { FIXTURES_DIR, flashFirmware, openDevice, waitForMarker, autoDetectPort } = require("./lib");
 
 const FIXTURES = ["supervisor-sim", "child-crash", "child-spin"];
 
@@ -76,18 +75,18 @@ describe("two-slot runtime", () => {
       // Give the device time to boot after flashing.
       await new Promise((r) => setTimeout(r, 5000));
 
-      const port = await openPort(portPath);
+      const { transport, client } = await openDevice(portPath);
       try {
         // Children first; the supervisor goes last as main.wasm so its
         // auto-start finds both files already in place.
         console.log("Pushing child apps...");
-        await pushFile(port, fs.readFileSync(compiledPath("child-crash")), "child-crash.wasm");
-        await pushFile(port, fs.readFileSync(compiledPath("child-spin")), "child-spin.wasm");
+        await client.pushFile(fs.readFileSync(compiledPath("child-crash")), "child-crash.wasm");
+        await client.pushFile(fs.readFileSync(compiledPath("child-spin")), "child-spin.wasm");
 
         console.log("Pushing supervisor as main.wasm...");
-        await pushFile(port, fs.readFileSync(compiledPath("supervisor-sim")), "main.wasm");
+        await client.pushFile(fs.readFileSync(compiledPath("supervisor-sim")), "main.wasm");
 
-        const output = await waitForMarker(port, "SUP_DONE", RUN_TIMEOUT);
+        const output = await waitForMarker(transport, "SUP_DONE", RUN_TIMEOUT);
         console.log("Device output:\n", output);
 
         // Crash detection and reclaim
@@ -104,7 +103,7 @@ describe("two-slot runtime", () => {
         expect(output).toContain("SUP_ALIVE 3");
         expect(output).toMatch(/SPIN_STOP rc=(0|-\d+) status=0/);
       } finally {
-        await closePort(port);
+        await transport.close();
       }
     },
     RUN_TIMEOUT + 60_000

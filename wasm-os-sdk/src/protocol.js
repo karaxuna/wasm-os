@@ -1,7 +1,9 @@
-// Serial protocol shared with the firmware (main/serial_cmd.h).
-// Frame format: [MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]
+// Serial protocol shared with the firmware (wasm-os-core/main/serial_cmd.c) —
+// keep the two in sync. Frame format: [MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]
+//
+// Pure Uint8Array/DataView so the same code runs in Node and the browser.
 
-const MAGIC = Buffer.from([0x57, 0x4f, 0x53, 0x21]); // "WOS!"
+const MAGIC = Uint8Array.from([0x57, 0x4f, 0x53, 0x21]); // "WOS!"
 
 const CMD = {
   PUSH_BEGIN: 0x01,
@@ -19,24 +21,32 @@ const RSP = {
 const FRAME_HEADER_SIZE = 9; // 4 magic + 1 cmd + 4 len
 const CHUNK_SIZE = 1024;
 
+const textEncoder = new TextEncoder();
+
 function buildFrame(cmd, payload) {
-  const payloadBuf = payload ? Buffer.from(payload) : Buffer.alloc(0);
-  const frame = Buffer.alloc(FRAME_HEADER_SIZE + payloadBuf.length);
+  let payloadBytes;
+  if (!payload) {
+    payloadBytes = new Uint8Array(0);
+  } else if (payload instanceof Uint8Array) {
+    payloadBytes = payload;
+  } else {
+    payloadBytes = Uint8Array.from(payload);
+  }
 
-  MAGIC.copy(frame, 0);
+  const frame = new Uint8Array(FRAME_HEADER_SIZE + payloadBytes.length);
+  frame.set(MAGIC, 0);
   frame[4] = cmd;
-  frame.writeUInt32LE(payloadBuf.length, 5);
-  payloadBuf.copy(frame, FRAME_HEADER_SIZE);
-
+  new DataView(frame.buffer).setUint32(5, payloadBytes.length, true);
+  frame.set(payloadBytes, FRAME_HEADER_SIZE);
   return frame;
 }
 
 // PUSH_BEGIN payload: [total_size:4 LE] [filename:utf8]
 function buildPushBeginFrame(totalSize, filename) {
-  const nameBytes = Buffer.from(filename, "utf8");
-  const payload = Buffer.alloc(4 + nameBytes.length);
-  payload.writeUInt32LE(totalSize, 0);
-  nameBytes.copy(payload, 4);
+  const nameBytes = textEncoder.encode(filename);
+  const payload = new Uint8Array(4 + nameBytes.length);
+  new DataView(payload.buffer).setUint32(0, totalSize, true);
+  payload.set(nameBytes, 4);
   return buildFrame(CMD.PUSH_BEGIN, payload);
 }
 
@@ -54,7 +64,17 @@ function buildRestartFrame() {
 
 // DELETE payload: [filename:utf8]
 function buildDeleteFrame(filename) {
-  return buildFrame(CMD.DELETE, Buffer.from(filename, "utf8"));
+  return buildFrame(CMD.DELETE, textEncoder.encode(filename));
+}
+
+/* Uint8Array has no subsequence indexOf, so scan by hand. */
+function findMagic(buffer) {
+  for (let i = 0; i + MAGIC.length <= buffer.length; i++) {
+    if (buffer[i] === MAGIC[0] && buffer[i + 1] === MAGIC[1] && buffer[i + 2] === MAGIC[2] && buffer[i + 3] === MAGIC[3]) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 /**
@@ -64,13 +84,14 @@ function buildDeleteFrame(filename) {
  * when no complete frame is present yet.
  */
 function parseResponse(buffer) {
-  const magicIdx = buffer.indexOf(MAGIC);
+  const magicIdx = findMagic(buffer);
   if (magicIdx === -1 || buffer.length - magicIdx < FRAME_HEADER_SIZE) {
     return null;
   }
 
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const cmd = buffer[magicIdx + 4];
-  const payloadLen = buffer.readUInt32LE(magicIdx + 5);
+  const payloadLen = view.getUint32(magicIdx + 5, true);
   const frameEnd = magicIdx + FRAME_HEADER_SIZE + payloadLen;
   if (buffer.length < frameEnd) {
     return null;
