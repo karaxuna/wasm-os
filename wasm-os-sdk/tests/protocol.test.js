@@ -64,10 +64,16 @@ describe("frame building", () => {
     expect(buildRestartFrame()[4]).toBe(CMD.RESTART);
   });
 
-  it("builds a LIST frame with no payload", () => {
+  it("builds a LIST frame with no payload for the root", () => {
     const frame = buildListFrame();
     expect(frame[4]).toBe(CMD.LIST);
     expect(frame.length).toBe(FRAME_HEADER_SIZE);
+  });
+
+  it("encodes a LIST path as the payload", () => {
+    const frame = buildListFrame("apps/demo");
+    expect(frame[4]).toBe(CMD.LIST);
+    expect(textDecoder.decode(frame.subarray(FRAME_HEADER_SIZE))).toBe("apps/demo");
   });
 
   it("encodes DELETE as a bare filename", () => {

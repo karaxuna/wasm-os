@@ -34,7 +34,7 @@ idf.py monitor
 npm install                        # once, at the repo root (npm workspaces)
 cd wasm-os-cli
 npx wasm-os push ./app.wasm        # push and run
-npx wasm-os ls                     # list files on the device (alias: list)
+npx wasm-os ls [dir]               # list device files, root or a nested dir (alias: list)
 npx wasm-os delete probe.bin       # remove files from the device (alias: rm)
 npx wasm-os restart                # restart current app
 npx wasm-os monitor                # serial monitor
@@ -127,7 +127,7 @@ Changesets manages the publishable npm packages (`@wasm-os/mklfs`, `@wasm-os/sdk
 
 ## Serial Protocol
 
-Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename), LIST (ACK payload = repeated [type:1][size:4 LE][name_len:1][name]). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-sdk/src/protocol.js` — keep the two in sync (same repo, same PR).
+Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename), LIST (payload = optional dir path; ACK payload = repeated [type:1][size:4 LE][name_len:1][name]). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-sdk/src/protocol.js` — keep the two in sync (same repo, same PR).
 
 PUSH_BEGIN stops both app slots (child first, then main), because a busy guest in either slot starves the serial task and stalls the transfer. The main app restarts once the transfer ends — on success, failure, or when a later PUSH_BEGIN supersedes an abandoned one — so a push never leaves the device app-less; re-launching the child is the main app's job. Pushing any file therefore restarts the app; `main.wasm` additionally starts even if nothing was running.
 

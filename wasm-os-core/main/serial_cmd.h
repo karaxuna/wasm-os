@@ -14,7 +14,7 @@
 #define SERIAL_CMD_PUSH_END 0x03   // End file transfer, write to flash
 #define SERIAL_CMD_RESTART 0x04    // Restart WASM module
 #define SERIAL_CMD_DELETE 0x05     // Delete a file: payload = filename
-#define SERIAL_CMD_LIST 0x06       // List files: ACK payload = repeated [type:1][size:4 LE][name_len:1][name]
+#define SERIAL_CMD_LIST 0x06       // List files: payload = optional dir path; ACK payload = repeated [type:1][size:4 LE][name_len:1][name]
 
 // Responses from device to CLI
 #define SERIAL_RSP_ACK 0x80

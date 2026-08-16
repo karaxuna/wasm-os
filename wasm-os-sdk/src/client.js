@@ -131,9 +131,12 @@ function createDeviceClient(transport) {
     return sendFrameWithRetry(buildRestartFrame(), options);
   }
 
-  /** Enumerate the device filesystem: [{ name, size, type }]. */
-  async function listFiles(options) {
-    const payload = await sendFrameWithRetry(buildListFrame(), options);
+  /**
+   * Enumerate a directory on the device ("" = the filesystem root).
+   * Returns [{ name, size, type }].
+   */
+  async function listFiles(path = "", options) {
+    const payload = await sendFrameWithRetry(buildListFrame(path), options);
     return parseFileList(payload);
   }
 

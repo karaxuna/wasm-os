@@ -273,15 +273,63 @@ static void handle_delete(const uint8_t* payload, uint32_t len) {
 }
 
 /*
- * List /littlefs (the flat namespace push/delete use). ACK payload:
+ * List a directory under /littlefs (empty payload = the root). ACK payload:
  * repeated [type:1 (0 file, 1 dir)] [size:4 LE] [name_len:1] [name].
  */
 #define LIST_BUF_SIZE 4096
+#define LIST_PATH_MAX 128
+#define LIST_PATH_BUF_SIZE (sizeof(LITTLEFS_PREFIX) + LIST_PATH_MAX)
 
-static void handle_list(void) {
-  DIR* dir = opendir("/littlefs");
+/*
+ * Validate a relative directory path ('/'-separated, no ".", "..", empty
+ * segments) and expand it under /littlefs. NULL on success, else the NAK
+ * message.
+ */
+static const char* resolve_dir_path(const uint8_t* path, uint32_t len, char* out, size_t cap) {
+  if (len == 0) {
+    snprintf(out, cap, "/littlefs");
+    return NULL;
+  }
+  if (len > LIST_PATH_MAX) {
+    return "Path too long";
+  }
+  if (path[0] == '/' || path[len - 1] == '/') {
+    return "Invalid path";
+  }
+
+  uint32_t segment_start = 0;
+  for (uint32_t i = 0; i <= len; i++) {
+    if (i < len && (path[i] == '\\' || path[i] == '\0')) {
+      return "Invalid path";
+    }
+    if (i == len || path[i] == '/') {
+      uint32_t segment_len = i - segment_start;
+      if (segment_len == 0) {
+        return "Invalid path";
+      }
+      if ((segment_len == 1 && path[segment_start] == '.') ||
+          (segment_len == 2 && path[segment_start] == '.' && path[segment_start + 1] == '.')) {
+        return "Invalid path";
+      }
+      segment_start = i + 1;
+    }
+  }
+
+  snprintf(out, cap, LITTLEFS_PREFIX "%.*s", (int)len, (const char*)path);
+  return NULL;
+}
+
+static void handle_list(const uint8_t* payload, uint32_t len) {
+  char dir_path[LIST_PATH_BUF_SIZE];
+  const char* err = resolve_dir_path(payload, len, dir_path, sizeof(dir_path));
+  if (err) {
+    nak(err);
+    return;
+  }
+
+  DIR* dir = opendir(dir_path);
   if (!dir) {
-    nak("Failed to open filesystem");
+    nak("No such directory");
     return;
   }
 
@@ -306,8 +354,8 @@ static void handle_list(void) {
     uint8_t type = entry->d_type == DT_DIR ? 1 : 0;
     uint32_t size = 0;
     if (type == 0) {
-      char path[PATH_BUF_SIZE];
-      snprintf(path, sizeof(path), LITTLEFS_PREFIX "%s", entry->d_name);
+      char path[LIST_PATH_BUF_SIZE + MAX_FILENAME_LEN + 1];
+      snprintf(path, sizeof(path), "%s/%s", dir_path, entry->d_name);
       struct stat st;
       if (stat(path, &st) == 0) {
         size = (uint32_t)st.st_size;
@@ -374,7 +422,7 @@ static void dispatch(uint8_t cmd, const uint8_t* payload, uint32_t len) {
       handle_restart();
       break;
     case SERIAL_CMD_LIST:
-      handle_list();
+      handle_list(payload, len);
       break;
     default:
       ESP_LOGW(TAG, "Unknown command: 0x%02x", cmd);

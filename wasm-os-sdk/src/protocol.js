@@ -68,8 +68,9 @@ function buildDeleteFrame(filename) {
   return buildFrame(CMD.DELETE, textEncoder.encode(filename));
 }
 
-function buildListFrame() {
-  return buildFrame(CMD.LIST);
+// LIST payload: optional '/'-separated directory path (empty = root)
+function buildListFrame(path = "") {
+  return buildFrame(CMD.LIST, path ? textEncoder.encode(path) : undefined);
 }
 
 const textDecoder = new TextDecoder();

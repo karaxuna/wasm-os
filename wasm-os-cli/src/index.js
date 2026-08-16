@@ -90,24 +90,28 @@ portOptions(
   }
 });
 
-portOptions(program.command("ls").alias("list").description("List files on the device filesystem")).action(
-  async (opts) => {
-    try {
-      await withDevice(opts, async (client) => {
-        const entries = await client.listFiles();
-        if (entries.length === 0) {
-          console.log("(empty)");
-          return;
-        }
-        for (const entry of entries) {
-          console.log(entry.type === "dir" ? `<dir>\t${entry.name}` : `${entry.size}\t${entry.name}`);
-        }
-      });
-    } catch (err) {
-      fail(err);
-    }
+portOptions(
+  program
+    .command("ls")
+    .alias("list")
+    .description("List files on the device filesystem")
+    .argument("[path]", "Directory on the device (defaults to the root)")
+).action(async (dirPath, opts) => {
+  try {
+    await withDevice(opts, async (client) => {
+      const entries = await client.listFiles(dirPath || "");
+      if (entries.length === 0) {
+        console.log("(empty)");
+        return;
+      }
+      for (const entry of entries) {
+        console.log(entry.type === "dir" ? `<dir>\t${entry.name}` : `${entry.size}\t${entry.name}`);
+      }
+    });
+  } catch (err) {
+    fail(err);
   }
-);
+});
 
 portOptions(program.command("restart").description("Restart the WASM module on the device")).action(async (opts) => {
   try {
