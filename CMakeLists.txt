@@ -11,8 +11,6 @@ add_compile_options(-Wno-error=missing-braces)
 set(WAMR_BUILD_SHARED_HEAP 1)
 add_definitions(
     -DCONFIG_IPV6
-    -DBH_DEBUG=1
-    -DBH_ENABLE_GC_VERIFY=1
     -DESPIDF_DISABLE_PTHREAD
     -DWASM_ENABLE_MULTI_MODULE=1
     -DWASM_ENABLE_LIBC_BUILTIN=1

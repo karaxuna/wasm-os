@@ -15,7 +15,7 @@ BUILD_DIR="${FIXTURE_DIR}/build"
 
 # -O3 renders ~noticeably faster under the WAMR interpreter than -Oz;
 # override with WASM_OS_OPT=-Oz when size matters more than speed.
-OPT="${WASM_OS_OPT:--Oz}"
+OPT="${WASM_OS_OPT:--O3}"
 
 CFLAGS=(
   --target=wasm32-wasi

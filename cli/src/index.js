@@ -19,7 +19,7 @@ const {
   buildDeleteFrame,
   CHUNK_SIZE,
 } = require("./protocol");
-const { connect, flashImage, FLASH_BAUD } = require("./flash");
+const { connect, flashImage, hardReset, FLASH_BAUD } = require("./flash");
 
 function portOptions(command) {
   return command
@@ -193,7 +193,11 @@ program
         console.log(`Chip:  ${chip}`);
         console.log(`Flash: ${sizeMb} MB`);
       } finally {
+        // Reset out of the ROM bootloader, or the firmware stays down
+        // until a power cycle.
+        await loader.after();
         await transport.disconnect();
+        await hardReset(portPath);
       }
     } catch (err) {
       fail(err);

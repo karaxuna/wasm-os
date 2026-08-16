@@ -49,3 +49,9 @@ CONFIG_WAMR_ENABLE_LIB_PTHREAD=y
 # expect an NVS store either.
 #
 CONFIG_ESP_WIFI_NVS_ENABLED=n
+
+#
+# -O2: the WAMR interpreter loop and the native gfx fills live in this image;
+# IDF's -Og default costs a multiple of guest rendering throughput.
+#
+CONFIG_COMPILER_OPTIMIZATION_PERF=y

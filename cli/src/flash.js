@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { SerialPort } = require("serialport");
 const { openSerialDevice } = require("./webserial");
 
 const FLASH_BAUD = 921600;
@@ -56,6 +57,32 @@ async function connect(portPath, { baud = FLASH_BAUD, quiet = false } = {}) {
 }
 
 /**
+ * Pulse EN via RTS with IO0 (DTR) released so the chip reboots into the
+ * application. esptool-js's own hard_reset does not reliably leave the ROM
+ * bootloader on USB-Serial-JTAG consoles (P4/S3), stranding the device until
+ * a power cycle.
+ */
+function hardReset(portPath) {
+  return new Promise((resolve, reject) => {
+    const port = new SerialPort({ path: portPath, baudRate: 115200 }, (err) => {
+      if (err) {
+        return reject(err);
+      }
+
+      port.set({ dtr: false, rts: true }, () => {
+        setTimeout(() => {
+          port.set({ dtr: false, rts: false }, () => {
+            port.close(() => {
+              return resolve();
+            });
+          });
+        }, 150);
+      });
+    });
+  });
+}
+
+/**
  * Flash `image` at `address`. The merged image covers bootloader, partition
  * table and app0, all of which sit below the littlefs partition, so a normal
  * flash leaves the pushed .wasm app intact. `eraseAll` wipes it.
@@ -87,7 +114,8 @@ async function flashImage(portPath, image, { address = 0, baud = FLASH_BAUD, era
     await loader.after();
   } finally {
     await transport.disconnect();
+    await hardReset(portPath);
   }
 }
 
-module.exports = { connect, flashImage, FLASH_BAUD };
+module.exports = { connect, flashImage, hardReset, FLASH_BAUD };
