@@ -120,6 +120,10 @@ The touch test pushes a plain-C app (compiled with wasi-sdk, auto-downloaded by 
 
 The P4 touch test (`test:touch:p4`, `WASM_OS_PROFILE=esp32p4-16mb-psram`) targets the JC8012P4A1C board and does use LVGL (v9, fetched by `wasm-os-tests/scripts/fetch-lvgl.sh`, compiled to wasm alongside the fixture): the P4's PSRAM removes the module-size limit. Its fixture drives the JD9365 800x1280 MIPI-DSI panel through the esp_lcd bindings and the GSL3680 touch controller (vendor firmware upload + Silead point algorithm, copied from the vendor demo) through the i2c_master bindings.
 
+## Releases
+
+Changesets manages the publishable npm packages (`mklfs`, `wasm-os-sdk`, `wasm-os`); `wasm-os-tests` is private/ignored and pins workspace siblings with `*` ranges. Land every release-worthy change with `npx changeset`; `npm run version-packages` bumps versions and cascades internal dependency ranges (important on 0.x, where `^0.1.0` excludes `0.2.0`); `npm run release` tests, publishes in dependency order, and git-tags. `.github/workflows/release.yml` automates this via a "Version Packages" PR once the repo is on GitHub (needs an `NPM_TOKEN` secret). The firmware version in the root `package.json` is a separate axis, managed by hand. A serial-protocol change is at least a minor `wasm-os-sdk` bump, with the minimum firmware noted in the changelog.
+
 ## Serial Protocol
 
 Binary protocol over USB serial with magic bytes `WOS!` (0x57 0x4F 0x53 0x21). Frame format: `[MAGIC:4] [CMD:1] [LEN:4 LE] [PAYLOAD:LEN]`. Commands: PUSH_BEGIN, PUSH_DATA (1KB chunks), PUSH_END, RESTART, DELETE (payload = filename). Device responds with ACK/NAK. Implemented in `wasm-os-core/main/serial_cmd.c` and `wasm-os-sdk/src/protocol.js` — keep the two in sync (same repo, same PR).

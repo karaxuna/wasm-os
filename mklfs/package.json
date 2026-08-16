@@ -11,7 +11,8 @@
     "assets"
   ],
   "scripts": {
-    "test": "jest tests"
+    "test": "jest tests",
+    "prepublishOnly": "npm test"
   },
   "devDependencies": {
     "jest": "^29.7.0"

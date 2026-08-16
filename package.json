@@ -16,6 +16,12 @@
     "test:priority": "npm run test:priority --workspace wasm-os-tests",
     "test:supervisor": "npm run test:supervisor --workspace wasm-os-tests",
     "test:touch": "npm run test:touch --workspace wasm-os-tests",
-    "test:touch:p4": "npm run test:touch:p4 --workspace wasm-os-tests"
+    "test:touch:p4": "npm run test:touch:p4 --workspace wasm-os-tests",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "npm test && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.0"
   }
 }
