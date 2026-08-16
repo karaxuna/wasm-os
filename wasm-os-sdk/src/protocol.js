@@ -11,6 +11,7 @@ const CMD = {
   PUSH_END: 0x03,
   RESTART: 0x04,
   DELETE: 0x05,
+  LIST: 0x06,
 };
 
 const RSP = {
@@ -67,6 +68,43 @@ function buildDeleteFrame(filename) {
   return buildFrame(CMD.DELETE, textEncoder.encode(filename));
 }
 
+function buildListFrame() {
+  return buildFrame(CMD.LIST);
+}
+
+const textDecoder = new TextDecoder();
+
+/**
+ * Parse a LIST response payload: repeated
+ * [type:1 (0 file, 1 dir)] [size:4 LE] [name_len:1] [name:utf8].
+ * Returns [{ name, size, type: "file" | "dir" }].
+ */
+function parseFileList(payload) {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  const entries = [];
+
+  let off = 0;
+  while (off < payload.length) {
+    if (off + 6 > payload.length) {
+      throw new Error("Truncated file list entry");
+    }
+    const type = payload[off];
+    const size = view.getUint32(off + 1, true);
+    const nameLen = payload[off + 5];
+    if (off + 6 + nameLen > payload.length) {
+      throw new Error("Truncated file list name");
+    }
+
+    entries.push({
+      name: textDecoder.decode(payload.subarray(off + 6, off + 6 + nameLen)),
+      size,
+      type: type === 1 ? "dir" : "file",
+    });
+    off += 6 + nameLen;
+  }
+  return entries;
+}
+
 /* Uint8Array has no subsequence indexOf, so scan by hand. */
 function findMagic(buffer) {
   for (let i = 0; i + MAGIC.length <= buffer.length; i++) {
@@ -116,5 +154,7 @@ module.exports = {
   buildPushEndFrame,
   buildRestartFrame,
   buildDeleteFrame,
+  buildListFrame,
+  parseFileList,
   parseResponse,
 };

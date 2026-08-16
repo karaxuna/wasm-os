@@ -8,6 +8,8 @@ const {
   buildPushEndFrame,
   buildRestartFrame,
   buildDeleteFrame,
+  buildListFrame,
+  parseFileList,
   parseResponse,
 } = require("../src/protocol");
 
@@ -60,6 +62,12 @@ describe("frame building", () => {
 
   it("builds a RESTART frame", () => {
     expect(buildRestartFrame()[4]).toBe(CMD.RESTART);
+  });
+
+  it("builds a LIST frame with no payload", () => {
+    const frame = buildListFrame();
+    expect(frame[4]).toBe(CMD.LIST);
+    expect(frame.length).toBe(FRAME_HEADER_SIZE);
   });
 
   it("encodes DELETE as a bare filename", () => {
@@ -125,6 +133,31 @@ describe("response parsing", () => {
 
     const next = parseResponse(buffer.subarray(result.consumed));
     expect(textDecoder.decode(next.payload)).toBe("2");
+  });
+
+  it("parses a LIST payload of typed entries", () => {
+    // [type][size:4 LE][name_len][name] x2: main.wasm (12127 bytes), a dir
+    const name1 = textEncoder.encode("main.wasm");
+    const name2 = textEncoder.encode("apps");
+    const payload = new Uint8Array(6 + name1.length + 6 + name2.length);
+    const view = new DataView(payload.buffer);
+    let off = 0;
+    payload[off] = 0;
+    view.setUint32(off + 1, 12127, true);
+    payload[off + 5] = name1.length;
+    payload.set(name1, off + 6);
+    off += 6 + name1.length;
+    payload[off] = 1;
+    view.setUint32(off + 1, 0, true);
+    payload[off + 5] = name2.length;
+    payload.set(name2, off + 6);
+
+    expect(parseFileList(payload)).toEqual([
+      { name: "main.wasm", size: 12127, type: "file" },
+      { name: "apps", size: 0, type: "dir" },
+    ]);
+    expect(parseFileList(new Uint8Array(0))).toEqual([]);
+    expect(() => parseFileList(payload.subarray(0, 4))).toThrow(/Truncated/);
   });
 
   it("parses frames offered as Node Buffers (a Uint8Array subclass)", () => {

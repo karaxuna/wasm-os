@@ -41,7 +41,7 @@ await transport.close();
 - `protocol.js` — frame building/parsing, shared byte-for-byte with
   `wasm-os-core/main/serial_cmd.c` (keep the two in sync)
 - `createDeviceClient(transport)` — `pushFile(data, name, {onProgress, beginAttempts})`,
-  `deleteFile(name)`, `restart()`, plus raw `sendFrame`/`sendFrameWithRetry`
+  `deleteFile(name)`, `restart()`, `listFiles()`, plus raw `sendFrame`/`sendFrameWithRetry`
 - `hardReset(transport)` — reboot into the application (device settings are
   read once at boot)
 - Transports implement `{ write, subscribe, setSignals, close }`; anything

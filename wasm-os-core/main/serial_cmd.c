@@ -1,9 +1,11 @@
 #include "serial_cmd.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "esp_log.h"
@@ -73,28 +75,31 @@ static void transfer_reset(void) {
   }
 }
 
-static void send_response(uint8_t response_code, const char* message) {
-  uint32_t msg_len = message ? strlen(message) : 0;
+static void send_response_bytes(uint8_t response_code, const void* payload, uint32_t len) {
   uint8_t header[FRAME_HEADER_SIZE] = {
       SERIAL_CMD_MAGIC_0,
       SERIAL_CMD_MAGIC_1,
       SERIAL_CMD_MAGIC_2,
       SERIAL_CMD_MAGIC_3,
       response_code,
-      (uint8_t)(msg_len >> 0),
-      (uint8_t)(msg_len >> 8),
-      (uint8_t)(msg_len >> 16),
-      (uint8_t)(msg_len >> 24),
+      (uint8_t)(len >> 0),
+      (uint8_t)(len >> 8),
+      (uint8_t)(len >> 16),
+      (uint8_t)(len >> 24),
   };
 
   bool ok = write(s_console_fd, header, sizeof(header)) == (ssize_t)sizeof(header);
-  if (ok && msg_len > 0) {
-    ok = write(s_console_fd, message, msg_len) == (ssize_t)msg_len;
+  if (ok && len > 0) {
+    ok = write(s_console_fd, payload, len) == (ssize_t)len;
   }
   if (!ok) {
     ESP_LOGW(TAG, "Failed to write response 0x%02x", response_code);
   }
   fsync(s_console_fd);
+}
+
+static void send_response(uint8_t response_code, const char* message) {
+  send_response_bytes(response_code, message, message ? strlen(message) : 0);
 }
 
 static void nak(const char* message) {
@@ -267,6 +272,63 @@ static void handle_delete(const uint8_t* payload, uint32_t len) {
   send_response(SERIAL_RSP_ACK, NULL);
 }
 
+/*
+ * List /littlefs (the flat namespace push/delete use). ACK payload:
+ * repeated [type:1 (0 file, 1 dir)] [size:4 LE] [name_len:1] [name].
+ */
+#define LIST_BUF_SIZE 4096
+
+static void handle_list(void) {
+  DIR* dir = opendir("/littlefs");
+  if (!dir) {
+    nak("Failed to open filesystem");
+    return;
+  }
+
+  uint8_t* buf = malloc(LIST_BUF_SIZE);
+  if (!buf) {
+    closedir(dir);
+    nak("Out of memory");
+    return;
+  }
+
+  uint32_t off = 0;
+  struct dirent* entry;
+  while ((entry = readdir(dir)) != NULL) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+    size_t name_len = strlen(entry->d_name);
+    if (name_len > MAX_FILENAME_LEN || off + 6 + name_len > LIST_BUF_SIZE) {
+      continue;
+    }
+
+    uint8_t type = entry->d_type == DT_DIR ? 1 : 0;
+    uint32_t size = 0;
+    if (type == 0) {
+      char path[PATH_BUF_SIZE];
+      snprintf(path, sizeof(path), LITTLEFS_PREFIX "%s", entry->d_name);
+      struct stat st;
+      if (stat(path, &st) == 0) {
+        size = (uint32_t)st.st_size;
+      }
+    }
+
+    buf[off++] = type;
+    buf[off++] = (uint8_t)(size >> 0);
+    buf[off++] = (uint8_t)(size >> 8);
+    buf[off++] = (uint8_t)(size >> 16);
+    buf[off++] = (uint8_t)(size >> 24);
+    buf[off++] = (uint8_t)name_len;
+    memcpy(buf + off, entry->d_name, name_len);
+    off += name_len;
+  }
+  closedir(dir);
+
+  send_response_bytes(SERIAL_RSP_ACK, buf, off);
+  free(buf);
+}
+
 static void handle_restart(void) {
   ESP_LOGI(TAG, "Restart requested");
   app_runtime_stop(WOS_SLOT_CHILD, 0);
@@ -310,6 +372,9 @@ static void dispatch(uint8_t cmd, const uint8_t* payload, uint32_t len) {
       break;
     case SERIAL_CMD_RESTART:
       handle_restart();
+      break;
+    case SERIAL_CMD_LIST:
+      handle_list();
       break;
     default:
       ESP_LOGW(TAG, "Unknown command: 0x%02x", cmd);

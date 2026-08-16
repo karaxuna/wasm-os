@@ -73,10 +73,19 @@ describe("push wasm", () => {
 
       let output;
       try {
+        // Subscribe before the push: the app restarts (and may finish) the
+        // moment PUSH_END is acked, so a late listener misses its output.
+        const appDone = waitForMarker(transport, "wasm-os test app done", PUSH_TIMEOUT + RUN_TIMEOUT);
+
         await client.pushFile(wasm, "main.wasm");
 
-        // Listen for serial output to confirm the app ran
-        output = await waitForMarker(transport, "wasm-os test app done", RUN_TIMEOUT);
+        const files = await client.listFiles();
+        console.log("Device files:", files.map((f) => `${f.name} (${f.size})`).join(", "));
+        const mainEntry = files.find((f) => f.name === "main.wasm");
+        expect(mainEntry).toBeDefined();
+        expect(mainEntry.size).toBe(wasm.length);
+
+        output = await appDone;
       } finally {
         await transport.close();
       }

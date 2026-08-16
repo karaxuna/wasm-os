@@ -11,6 +11,8 @@ const {
   buildPushEndFrame,
   buildRestartFrame,
   buildDeleteFrame,
+  buildListFrame,
+  parseFileList,
   parseResponse,
 } = require("./protocol");
 
@@ -129,12 +131,19 @@ function createDeviceClient(transport) {
     return sendFrameWithRetry(buildRestartFrame(), options);
   }
 
+  /** Enumerate the device filesystem: [{ name, size, type }]. */
+  async function listFiles(options) {
+    const payload = await sendFrameWithRetry(buildListFrame(), options);
+    return parseFileList(payload);
+  }
+
   return {
     sendFrame,
     sendFrameWithRetry,
     pushFile,
     deleteFile,
     restart,
+    listFiles,
   };
 }
 
