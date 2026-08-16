@@ -49,7 +49,7 @@ await transport.close();
 - `parsePartitionTable(image)` / `findPartition(image, label)` — read the
   ESP-IDF partition table out of a merged firmware image
 
-littlefs image building lives in the sibling [`mklfs`](../mklfs) package.
+littlefs image building lives in the sibling [`@wasm-os/mklfs`](../mklfs) package.
 
 ## Tests
 

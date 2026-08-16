@@ -1,4 +1,4 @@
-# mklfs
+# @wasm-os/mklfs
 
 Build and read [littlefs](https://github.com/littlefs-project/littlefs)
 filesystem images in pure JavaScript. littlefs itself is compiled to a
@@ -19,8 +19,8 @@ over Web Serial.
 ## Install
 
 ```bash
-npm install mklfs        # library
-npm install -g mklfs     # CLI
+npm install @wasm-os/mklfs        # library
+npm install -g @wasm-os/mklfs     # CLI (installs the `mklfs` command)
 ```
 
 ## CLI
@@ -59,7 +59,7 @@ mklfs -u ./extracted littlefs.bin
 ### Create
 
 ```js
-const { buildLittlefsImage } = require("mklfs");
+const { buildLittlefsImage } = require("@wasm-os/mklfs");
 
 const image = await buildLittlefsImage(
   [
@@ -75,7 +75,7 @@ const image = await buildLittlefsImage(
 ### Read
 
 ```js
-const { openLittlefsImage } = require("mklfs");
+const { openLittlefsImage } = require("@wasm-os/mklfs");
 
 const mounted = await openLittlefsImage(imageBytes);
 mounted.list();               // [{ path, type: "file" | "dir", size }]
@@ -88,14 +88,14 @@ Everything works in the browser; pass the WASM module bytes in, since there
 is no filesystem to load the asset from:
 
 ```js
-import { buildLittlefsImage } from "mklfs";
+import { buildLittlefsImage } from "@wasm-os/mklfs";
 
 const wasmBytes = await fetch(mklfsWasmUrl).then((r) => r.arrayBuffer());
 const image = await buildLittlefsImage(files, size, { wasmBytes });
 ```
 
-(`mklfsWasmUrl` should serve `node_modules/mklfs/assets/mklfs.wasm`; most
-bundlers handle this with `new URL("mklfs/assets/mklfs.wasm", import.meta.url)`.)
+(`mklfsWasmUrl` should serve `node_modules/@wasm-os/mklfs/assets/mklfs.wasm`; most
+bundlers handle this with `new URL("@wasm-os/mklfs/assets/mklfs.wasm", import.meta.url)`.)
 
 ### Geometry
 
@@ -123,7 +123,7 @@ Common targets:
 ### Sparse flashing
 
 ```js
-const { littlefsImageSegments } = require("mklfs");
+const { littlefsImageSegments } = require("@wasm-os/mklfs");
 const segments = littlefsImageSegments(image, partitionOffset);
 // [{ address, data }] — only the non-0xFF block runs
 ```
