@@ -1,5 +1,16 @@
 # @wasm-os/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- 4d2d970: `listFiles(path?)` and `wasm-os ls [path]` now enumerate nested directories, not just the filesystem root. Needs firmware with LIST path support.
+
+### Patch Changes
+
+- Updated dependencies [4d2d970]
+  - @wasm-os/sdk@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
