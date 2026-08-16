@@ -65,7 +65,7 @@ When `--port` is omitted, the CLI scans for common ESP32 USB-serial bridges (Esp
 
 ## Tests
 
-Protocol unit tests live in `wasm-os-sdk`; the hardware/integration suites
+Protocol unit tests live in `@wasm-os/sdk`; the hardware/integration suites
 (flashing a real board, touch tests) live in `wasm-os-tests/`. See the repo
 root README.
 
@@ -76,7 +76,7 @@ root README.
 - `src/flash.js` / `src/webserial.js` — esptool-js firmware flashing over node-serialport
 
 The frame protocol, device client, and serial transports live in the sibling
-`wasm-os-sdk` package (also used from browsers via Web Serial).
+`@wasm-os/sdk` package (also used from browsers via Web Serial).
 
 ## Protocol
 

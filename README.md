@@ -10,8 +10,8 @@ An npm-workspaces monorepo:
   - `main/bindings/` - the WASM-facing host API, one module per file (see `main/bindings/README.md` for the ABI conventions)
   - `profiles/` - build profiles per ESP32 variant / flash size
 - `mklfs/` - littlefs images in pure JS (littlefs compiled to WebAssembly) — standalone npm package `@wasm-os/mklfs`
-- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): protocol + device client, with Node and Web Serial transports so browsers can talk to devices too
-- `wasm-os-cli/` - CLI tool (Node.js, npm package `wasm-os`) built on the SDK
+- `wasm-os-sdk/` - isomorphic JS SDK (npm package `@wasm-os/sdk`): protocol + device client, with Node and Web Serial transports so browsers can talk to devices too
+- `wasm-os-cli/` - CLI tool (Node.js, npm package `@wasm-os/cli`) built on the SDK
 - `wasm-os-tests/` - hardware/integration test suites spanning firmware and CLI
 
 ## Architecture

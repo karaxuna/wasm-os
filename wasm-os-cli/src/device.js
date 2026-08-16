@@ -1,5 +1,5 @@
-const { openNodeSerialTransport, autoDetectPort, DEFAULT_BAUD } = require("wasm-os-sdk/src/transports/node-serial");
-const { createDeviceClient } = require("wasm-os-sdk/src/client");
+const { openNodeSerialTransport, autoDetectPort, DEFAULT_BAUD } = require("@wasm-os/sdk/src/transports/node-serial");
+const { createDeviceClient } = require("@wasm-os/sdk/src/client");
 
 /**
  * Resolve the serial port path from command options (or auto-detection).

@@ -1,4 +1,4 @@
-# wasm-os SDK
+# @wasm-os/sdk
 
 Isomorphic JavaScript SDK for talking to ESP32 devices running the wasm-os
 firmware: the binary serial protocol, a transport-agnostic device client, and
@@ -11,7 +11,7 @@ dependency, required lazily only by the Node transport.
 ## Node
 
 ```js
-const { autoDetectPort, openNodeSerialTransport, createDeviceClient } = require("wasm-os-sdk");
+const { autoDetectPort, openNodeSerialTransport, createDeviceClient } = require("@wasm-os/sdk");
 
 const portPath = await autoDetectPort();
 const transport = await openNodeSerialTransport(portPath);
@@ -26,7 +26,7 @@ await transport.close();
 ## Browser (Chromium-only Web Serial)
 
 ```js
-import { openWebSerialTransport, createDeviceClient } from "wasm-os-sdk";
+import { openWebSerialTransport, createDeviceClient } from "@wasm-os/sdk";
 
 const serialPort = await navigator.serial.requestPort();
 const transport = await openWebSerialTransport(serialPort);

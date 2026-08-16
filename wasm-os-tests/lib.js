@@ -1,11 +1,11 @@
 /**
  * Shared plumbing for the hardware suites: firmware location, flashing, and
- * device access through wasm-os-sdk (Node transport + device client).
+ * device access through @wasm-os/sdk (Node transport + device client).
  */
 const { execSync } = require("child_process");
 const path = require("path");
-const { createDeviceClient, hardReset } = require("wasm-os-sdk/src/client");
-const { openNodeSerialTransport, autoDetectPort, listPorts } = require("wasm-os-sdk/src/transports/node-serial");
+const { createDeviceClient, hardReset } = require("@wasm-os/sdk/src/client");
+const { openNodeSerialTransport, autoDetectPort, listPorts } = require("@wasm-os/sdk/src/transports/node-serial");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../wasm-os-core");
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures");

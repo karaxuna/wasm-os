@@ -13,8 +13,8 @@ npm-workspaces monorepo (root `package.json` is the version source and workspace
 - `wasm-os-core/main/bindings/` - WASM-facing host API (one module per file, `.wit` docs alongside)
 - `wasm-os-core/profiles/` - Build profiles for different ESP32 variants
 - `mklfs/` - standalone npm package `@wasm-os/mklfs` (CLI command `mklfs`): littlefs images built in pure JS (littlefs compiled to an import-free WASM module); its littlefs version must match wasm-os-core's esp_littlefs — bump together
-- `wasm-os-sdk/` - isomorphic JS SDK (npm package `wasm-os-sdk`): the serial protocol (pure Uint8Array, browser-safe), a transport-agnostic device client, Node (node-serialport) + browser (Web Serial) transports, and ESP-IDF partition-table parsing; unit tests in `wasm-os-sdk/tests/`
-- `wasm-os-cli/` - Node.js CLI (npm package `wasm-os`), a thin commander wrapper over wasm-os-sdk plus esptool-js flashing
+- `wasm-os-sdk/` - isomorphic JS SDK (npm package `@wasm-os/sdk`): the serial protocol (pure Uint8Array, browser-safe), a transport-agnostic device client, Node (node-serialport) + browser (Web Serial) transports, and ESP-IDF partition-table parsing; unit tests in `wasm-os-sdk/tests/`
+- `wasm-os-cli/` - Node.js CLI (npm package `@wasm-os/cli`, command `wasm-os`), a thin commander wrapper over @wasm-os/sdk plus esptool-js flashing
 - `wasm-os-tests/` - hardware/e2e suites spanning firmware + CLI, with the WASM fixtures and toolchain fetch scripts
 
 ## Build & Flash
@@ -104,7 +104,7 @@ lost and the wrong reset sequence is chosen.
 All runnable from the repo root; `npm test` never touches hardware.
 
 ```bash
-npm test                 # unit tests across workspaces (mklfs + wasm-os-sdk, no hardware)
+npm test                 # unit tests across workspaces (@wasm-os/mklfs + @wasm-os/sdk, no hardware)
 npm run test:hw          # hardware integration (requires connected ESP32)
 npm run test:wifi        # hardware: app connects to WiFi via the wifi binding and makes an HTTP request (needs wasm-os-tests/.env credentials)
 npm run test:supervisor  # hardware: two-slot runtime — a supervisor app starts/stops/reclaims child apps
@@ -122,7 +122,7 @@ The P4 touch test (`test:touch:p4`, `WASM_OS_PROFILE=esp32p4-16mb-psram`) target
 
 ## Releases
 
-Changesets manages the publishable npm packages (`@wasm-os/mklfs`, `wasm-os-sdk`, `wasm-os`); `wasm-os-tests` is private/ignored and pins workspace siblings with `*` ranges. Land every release-worthy change with `npx changeset`; `npm run version-packages` bumps versions and cascades internal dependency ranges (important on 0.x, where `^0.1.0` excludes `0.2.0`); `npm run release` tests, publishes in dependency order, and git-tags. `.github/workflows/release.yml` automates this via a "Version Packages" PR once the repo is on GitHub (needs an `NPM_TOKEN` secret). The firmware version in the root `package.json` is a separate axis, managed by hand. A serial-protocol change is at least a minor `wasm-os-sdk` bump, with the minimum firmware noted in the changelog.
+Changesets manages the publishable npm packages (`@wasm-os/mklfs`, `@wasm-os/sdk`, `@wasm-os/cli`); `wasm-os-tests` is private/ignored and pins workspace siblings with `*` ranges. Land every release-worthy change with `npx changeset`; `npm run version-packages` bumps versions and cascades internal dependency ranges (important on 0.x, where `^0.1.0` excludes `0.2.0`); `npm run release` tests, publishes in dependency order, and git-tags. `.github/workflows/release.yml` automates this via a "Version Packages" PR once the repo is on GitHub (needs an `NPM_TOKEN` secret). The firmware version in the root `package.json` is a separate axis, managed by hand. A serial-protocol change is at least a minor `@wasm-os/sdk` bump, with the minimum firmware noted in the changelog.
 
 ## Serial Protocol
 

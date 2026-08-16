@@ -1,7 +1,7 @@
 # Changesets
 
-Release management for the publishable packages (`mklfs`, `wasm-os-sdk`,
-`wasm-os`). `wasm-os-tests` is private and ignored; the firmware version in
+Release management for the publishable packages (`@wasm-os/mklfs`,
+`@wasm-os/sdk`, `@wasm-os/cli`). `wasm-os-tests` is private and ignored; the firmware version in
 the root `package.json` is a separate axis, managed by hand.
 
 Flow:

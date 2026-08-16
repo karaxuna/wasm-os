@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "serialport": "^12.0.0",
-    "wasm-os-sdk": "*"
+    "@wasm-os/sdk": "*"
   },
   "devDependencies": {
     "jest": "^29.7.0",
