@@ -89,6 +89,12 @@ int main(void) {
     return 1;
   }
 
+  wos_println("connecting to WiFi (stored credentials)...");
+  if (wos_wifi_connect("", "") < 0 || wos_wifi_wait(30000) != 0) {
+    wos_println("wifi connect failed");
+    return 1;
+  }
+
   wos_println("fetching buttons over HTTP...");
   int count = buttons_fetch(s_buttons, BUTTONS_MAX);
   if (count < 0) {

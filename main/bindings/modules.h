@@ -27,6 +27,7 @@ bool wos_register_spi_master(void);
 bool wos_register_task(void);
 bool wos_register_wasi(void);
 bool wos_register_websocket(void);
+bool wos_register_wifi(void);
 
 /* Per-app state resets, called from wos_bindings_reset() at app teardown. */
 void wos_callbacks_reset(void);

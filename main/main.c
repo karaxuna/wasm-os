@@ -6,16 +6,14 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_system.h"
-#include "freertos/FreeRTOS.h"
+#include "freertos/FreeRTOS.h" // IWYU pragma: keep
 #include "freertos/task.h"
 
 #include "app_runtime.h"
 #include "device_config.h"
 #include "logger.h"
 #include "serial_cmd.h"
-#include "wifi.h"
 
-#define WIFI_CONNECT_TIMEOUT_MS 30000
 #define MEMORY_REPORT_INTERVAL_MS 10000
 
 static const char* TAG = "main";
@@ -34,17 +32,6 @@ static void init_littlefs(void) {
   }
 }
 
-static void connect_wifi_if_configured(void) {
-  const device_config_t* config = device_config_get();
-  if (!config->wifi_ssid) {
-    ESP_LOGI(TAG, "No WiFi credentials configured, running offline");
-    return;
-  }
-  if (wifi_connect(config->wifi_ssid, config->wifi_pass, WIFI_CONNECT_TIMEOUT_MS) != ESP_OK) {
-    ESP_LOGW(TAG, "WiFi connection failed, continuing without network");
-  }
-}
-
 void app_main(void) {
   setlocale(LC_ALL, "");
   logger_init();
@@ -60,8 +47,7 @@ void app_main(void) {
   app_runtime_init();
   ESP_ERROR_CHECK(serial_cmd_init());
 
-  connect_wifi_if_configured();
-
+  /* WiFi is app-initiated: the guest connects through the "wifi" binding. */
   if (esp_reset_reason() == ESP_RST_PANIC) {
     ESP_LOGW(TAG, "Previous run panicked; not auto-starting the app to avoid a crash loop");
   } else {

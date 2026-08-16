@@ -26,6 +26,7 @@ idf_component_register(
     "bindings/task.c"
     "bindings/wasi.c"
     "bindings/websocket.c"
+    "bindings/wifi.c"
   INCLUDE_DIRS
     "."
 )

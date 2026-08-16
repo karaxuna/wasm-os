@@ -1,18 +1,15 @@
 /**
- * Interactive LVGL touch test for the JC8012P4A1C board (ESP32-P4 with
- * 32 MB PSRAM, JD9365 800x1280 10.1" MIPI-DSI panel, GSL3680 I2C touch).
+ * Hardware test for the app-initiated "wifi" binding: pushes an
+ * AssemblyScript app that connects to WiFi with the stored /littlefs/.env
+ * credentials and makes an HTTP request to the web.
  *
- * Flashes wasm-os, pushes an LVGL app (plain C + LVGL compiled with
- * wasi-sdk) that draws a large green button, then waits for a HUMAN to
- * press it on the screen. Not part of `npm test` — run:
+ * Needs a connected board and real credentials in cli/tests/.env (see
+ * .env.example). Run:
  *
- *   npm run test:touch:p4
- *
- * Device settings come from cli/tests/.env (see .env.example) — the app needs
- * WiFi to fetch its buttons over HTTP.
+ *   npm run test:wifi
  *
  * Env:
- *   WASM_OS_PROFILE     build profile (default esp32p4-16mb-psram)
+ *   WASM_OS_PROFILE     build profile (default esp32s3-16mb-psram-oct)
  *   WASM_OS_SKIP_FLASH  set to 1 when the firmware is already flashed
  */
 const { execSync } = require("child_process");
@@ -29,19 +26,17 @@ const {
 const { buildPushBeginFrame, buildPushDataFrame, buildPushEndFrame, CHUNK_SIZE } = require("../src/protocol");
 
 const FIRMWARE_DIR = path.resolve(__dirname, "../..");
-const FIXTURE_DIR = path.resolve(__dirname, "fixtures/lvgl-touch-p4");
-const APP_WASM = path.join(FIXTURE_DIR, "app.wasm");
+const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
+const OUTPUT_WASM = path.resolve(FIXTURES_DIR, "wifi-http.wasm");
 const ENV_FILE = path.resolve(__dirname, ".env");
 
 const IDF_PATH = process.env.IDF_PATH || "/Users/kakhaber/.espressif/v5.5.4/esp-idf";
-const PROFILE = process.env.WASM_OS_PROFILE || "esp32p4-16mb-psram";
+const PROFILE = process.env.WASM_OS_PROFILE || "esp32s3-16mb-psram-oct";
 const SKIP_FLASH = process.env.WASM_OS_SKIP_FLASH === "1";
 
 const FLASH_TIMEOUT = 300_000;
-const BUILD_TIMEOUT = 900_000; // first run downloads wasi-sdk and compiles LVGL
-const READY_TIMEOUT = 120_000; // LVGL renders 800x1280 through the interpreter
-const HUMAN_TIMEOUT = 60_000;
-const WIFI_TIMEOUT = 45_000; // the app waits up to 30s for the wifi binding to connect
+// wifi_connect retries up to 10 times before giving up; the app itself waits 30s.
+const RUN_TIMEOUT = 90_000;
 
 let portPath;
 
@@ -80,8 +75,8 @@ async function pushFile(port, data, name) {
 
 /**
  * Pulse EN via RTS while leaving IO0 (DTR) high, so the chip reboots into the
- * application rather than the ROM downloader. Device settings are only read at
- * boot, so pushing .env is pointless without this.
+ * application rather than the ROM downloader. The stored credentials are only
+ * read at boot, so pushing .env is pointless without this.
  */
 function hardReset(port) {
   return new Promise((resolve) => {
@@ -96,14 +91,18 @@ function hardReset(port) {
 }
 
 beforeAll(async () => {
+  if (!fs.existsSync(ENV_FILE) || !fs.readFileSync(ENV_FILE, "utf8").includes("WIFI_SSID")) {
+    throw new Error(`This test needs WiFi credentials: copy ${ENV_FILE}.example to ${ENV_FILE} and fill in WIFI_SSID/WIFI_PASS.`);
+  }
+
   portPath = await autoDetectPort();
   if (!portPath) {
-    throw new Error("No ESP32 device detected. Connect the JC8012P4A1C board via USB.");
+    throw new Error("No ESP32 device detected. Connect a board via USB.");
   }
   console.log(`Using serial port: ${portPath}`);
 });
 
-describe("lvgl touch button on esp32p4 (human in the loop)", () => {
+describe("wifi binding", () => {
   it(
     "flashes wasm-os",
     () => {
@@ -120,57 +119,56 @@ describe("lvgl touch button on esp32p4 (human in the loop)", () => {
   );
 
   it(
-    "builds the LVGL app, pushes it, and waits for a human button press",
+    "connects to wifi from the app and makes an HTTP request",
     async () => {
-      console.log("Building lvgl-touch-p4 fixture (first run downloads wasi-sdk + LVGL)...");
-      execSync(`${path.join(FIXTURE_DIR, "build.sh")}`, {
-        stdio: "inherit",
-        timeout: BUILD_TIMEOUT,
-      });
-
-      const wasm = fs.readFileSync(APP_WASM);
-      console.log(`App size: ${wasm.length} bytes`);
+      console.log("Compiling AssemblyScript...");
+      execSync(
+        [
+          "npx asc",
+          path.resolve(FIXTURES_DIR, "wifi-http.ts"),
+          "-o",
+          OUTPUT_WASM,
+          "--stackSize 3072",
+          "--initialMemory 1",
+          "--maximumMemory 1",
+          "--noAssert",
+          "--importMemory",
+          "--exportRuntime",
+        ].join(" "),
+        { cwd: FIXTURES_DIR, stdio: "inherit", timeout: 30_000 }
+      );
+      const wasm = fs.readFileSync(OUTPUT_WASM);
+      console.log(`Compiled WASM size: ${wasm.length} bytes`);
 
       // Give the device time to boot after flashing.
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 5000));
 
       const port = await openPort(portPath);
       try {
-        const hasEnv = fs.existsSync(ENV_FILE);
-        if (hasEnv) {
-          console.log("Pushing device settings (.env)...");
-          await pushFile(port, fs.readFileSync(ENV_FILE), ".env");
-        } else {
-          console.log(`No ${ENV_FILE}; the app cannot fetch buttons without WiFi.`);
-        }
+        console.log("Pushing device settings (.env)...");
+        await pushFile(port, fs.readFileSync(ENV_FILE), ".env");
 
         console.log("Pushing app...");
         await pushFile(port, wasm, "main.wasm");
 
-        /* Push before rebooting, not after: settings are only read at boot,
-         * and a freshly booted app blocks the serial task through its first
-         * full-screen render, which starves an in-flight transfer. */
+        // Settings are only read at boot, so reboot before expecting markers.
         console.log("Rebooting...");
         await hardReset(port);
-        if (hasEnv) {
-          await waitForMarker(port, "Got IP:", WIFI_TIMEOUT);
-          console.log("Device online.");
-        }
 
-        console.log("Waiting for the app to draw its UI...");
-        await waitForMarker(port, "UI_READY", READY_TIMEOUT);
-
-        console.log("\n" + "=".repeat(60));
-        console.log("👉  PRESS THE GREEN BUTTON ON THE TOUCHSCREEN NOW");
-        console.log(`    (you have ${HUMAN_TIMEOUT / 1000} seconds; it turns blue when registered)`);
-        console.log("=".repeat(60) + "\n");
-
-        await waitForMarker(port, "BUTTON_PRESSED", HUMAN_TIMEOUT);
-        console.log("Button press detected — test passed.");
+        const output = await waitForMarker(port, "wifi test app done", RUN_TIMEOUT);
+        console.log("Device output:\n", output);
+        expect(output).toContain("WIFI_CONNECTED");
+        expect(output).toContain("HTTP_STATUS 200");
       } finally {
         await closePort(port);
       }
     },
-    BUILD_TIMEOUT + WIFI_TIMEOUT + READY_TIMEOUT + HUMAN_TIMEOUT + 60_000
+    RUN_TIMEOUT + 60_000
   );
+});
+
+afterAll(() => {
+  if (fs.existsSync(OUTPUT_WASM)) {
+    fs.unlinkSync(OUTPUT_WASM);
+  }
 });

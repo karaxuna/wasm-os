@@ -50,7 +50,9 @@ API_BASE=https://example.com
 
 `WIFI_SSID`, `WIFI_PASS` and `LOG_LEVEL` are consumed by the firmware
 (`main/device_config.c`); **every other key is passed to the WASM app as an
-environment variable**, so credentials are never exposed to the guest. Restart
+environment variable**, so credentials are never exposed to the guest. The
+firmware never connects to WiFi on its own: the app initiates it through the
+`wifi` binding, where an empty SSID means "use the stored credentials". Restart
 the device for changes to take effect — the file is read once at boot.
 
 ### Flashing without ESP-IDF
@@ -83,6 +85,7 @@ lost and the wrong reset sequence is chosen.
 ```bash
 cd cli && npm test           # protocol unit tests (no hardware)
 cd cli && npm run test:hw    # hardware integration (requires connected ESP32)
+cd cli && npm run test:wifi  # hardware: app connects to WiFi via the wifi binding and makes an HTTP request (needs cli/tests/.env credentials)
 cd cli && npm run test:touch # interactive: human presses an on-screen button (HW-458/CYD board)
 cd cli && npm run test:touch:p4 # interactive: same, with LVGL on the JC8012P4A1C (ESP32-P4, 10.1" MIPI-DSI)
 ```
@@ -110,7 +113,8 @@ PUSH_BEGIN stops the running app, because a busy app starves the serial task and
 
 ## Key Files
 
-- `main/main.c` - Boot orchestration only (filesystem, NVS, config, WiFi, serial handler, app start)
+- `main/main.c` - Boot orchestration only (filesystem, NVS, config, serial handler, app start)
+- `main/wifi.c` - Station-mode WiFi state machine, driven by the `wifi` binding (the firmware never connects on its own)
 - `main/app_runtime.c` - WASM runtime init and race-free app start/stop
 - `main/device_config.c` - NVS-backed config (WiFi creds, env vars, log level)
 - `main/serial_cmd.c` - USB serial protocol handler

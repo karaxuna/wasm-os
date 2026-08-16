@@ -80,7 +80,7 @@ npm run test:hw   # full hardware integration suite (builds, flashes, pushes)
 
 ## How It Works
 
-1. Firmware boots, mounts LittleFS, loads config from NVS, and connects WiFi when credentials are stored
+1. Firmware boots, mounts LittleFS, and loads config from NVS. WiFi is app-initiated: the WASM app connects through the `wifi` binding (an empty SSID uses the stored credentials, which are never exposed to the guest)
 2. `/littlefs/main.wasm` runs in WAMR on a dedicated task
 3. A serial command handler listens for framed commands from the CLI (magic `WOS!`)
 4. When a new `main.wasm` is pushed, the running app is stopped cleanly (guest execution is terminated, leaked resources are reclaimed), the file is written, and the new module starts
@@ -90,6 +90,7 @@ npm run test:hw   # full hardware integration suite (builds, flashes, pushes)
 WASM modules access hardware through the modules documented in `main/bindings/*.wit`:
 
 - GPIO (digital I/O)
+- WiFi (station mode: connect, state, IP)
 - SPI master
 - I2S (audio)
 - MIPI-DSI LCD (ESP32-P4)

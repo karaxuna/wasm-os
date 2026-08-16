@@ -28,6 +28,7 @@ static const registrar_t k_registrars[] = {
     {"task", wos_register_task},
     {"wasi", wos_register_wasi},
     {"websocket", wos_register_websocket},
+    {"wifi", wos_register_wifi},
 };
 
 bool wos_register_all_bindings(void) {

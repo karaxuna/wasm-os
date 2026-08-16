@@ -9,6 +9,7 @@
     "test": "npm run test:unit",
     "test:unit": "jest tests/protocol.test.js",
     "test:hw": "jest --runInBand tests/hardware.test.js",
+    "test:wifi": "jest --runInBand tests/wifi.test.js",
     "test:priority": "jest --runInBand tests/priority.test.js",
     "test:touch": "jest --runInBand tests/touch-button.test.js",
     "test:touch:p4": "jest --runInBand tests/touch-lvgl-p4.test.js",
